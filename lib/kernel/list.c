@@ -61,6 +61,7 @@ list_init (struct list *list) {
 	list->head.next = &list->tail;
 	list->tail.prev = &list->head;
 	list->tail.next = NULL;
+	list->global_tick = 0;
 }
 
 /* Returns the beginning of LIST.  */

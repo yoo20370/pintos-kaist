@@ -1,6 +1,6 @@
 #include "devices/timer.h"
 #include <debug.h>
-#include <inttypes.h>
+#include <inttypes.h>  
 #include <round.h>
 #include <stdio.h>
 #include "threads/interrupt.h"
@@ -88,13 +88,18 @@ timer_elapsed (int64_t then) {
 }
 
 /* Suspends execution for approximately TICKS timer ticks. */
-void
-timer_sleep (int64_t ticks) {
-	int64_t start = timer_ticks ();
+// void
+// timer_sleep (int64_t ticks) {
+// 	int64_t start = timer_ticks ();
 
-	ASSERT (intr_get_level () == INTR_ON);
-	while (timer_elapsed (start) < ticks)
-		thread_yield ();
+// 	ASSERT (intr_get_level () == INTR_ON);
+// 	while (timer_elapsed (start) < ticks)
+// 		thread_yield ();
+// }
+void 
+timer_sleep(int64_t ticks){
+	// 실행 중인 스레드 가져오기
+	thread_sleep(timer_ticks() + ticks);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -124,8 +129,14 @@ timer_print_stats (void) {
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
+	int a = 10;
 	ticks++;
-	thread_tick ();
+
+	// 각 스레드의 경과 시간 
+	thread_tick (); 
+
+	// 타이머 인터럽트가 발생할 때마다. wake_up 함수를 실행하여 체크한다.
+	wake_up(ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
