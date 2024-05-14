@@ -1,6 +1,6 @@
 #include "devices/timer.h"
 #include <debug.h>
-#include <inttypes.h>
+#include <inttypes.h>  
 #include <round.h>
 #include <stdio.h>
 #include "threads/interrupt.h"
@@ -91,12 +91,27 @@ timer_elapsed(int64_t then)
 }
 
 /* Suspends execution for approximately TICKS timer ticks. */
+// void
+// timer_sleep (int64_t ticks) {
+// 	int64_t start = timer_ticks ();
+<<<<<<< HEAD
 void timer_sleep(int64_t param_ticks)
 { // TODO:
 	int64_t start = timer_ticks();
 
 	if (timer_elapsed(start) < param_ticks)
 		thread_sleep(start + param_ticks);
+=======
+
+>>>>>>> tjddnr9553
+// 	ASSERT (intr_get_level () == INTR_ON);
+// 	while (timer_elapsed (start) < ticks)
+// 		thread_yield ();
+// }
+void 
+timer_sleep(int64_t ticks){
+	// 실행 중인 스레드 가져오기
+	thread_sleep(timer_ticks() + ticks);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -128,7 +143,10 @@ void timer_print_stats(void)
 static void
 timer_interrupt(struct intr_frame *args UNUSED)
 {
+timer_interrupt (struct intr_frame *args UNUSED) {
+	int a = 10;
 	ticks++;
+<<<<<<< HEAD
 	thread_tick();
 	if (!list_empty(&blocked_list))
 	{
@@ -136,6 +154,14 @@ timer_interrupt(struct intr_frame *args UNUSED)
 		if (ticks >= head_next->wake_up_tick)
 			thread_wakeup();
 	}
+=======
+>>>>>>> tjddnr9553
+
+	// 각 스레드의 경과 시간 
+	thread_tick (); 
+
+	// 타이머 인터럽트가 발생할 때마다. wake_up 함수를 실행하여 체크한다.
+	wake_up(ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

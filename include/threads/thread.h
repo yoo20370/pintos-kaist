@@ -92,10 +92,18 @@ struct thread
 	enum thread_status status; /* Thread state. */
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
+<<<<<<< HEAD
 	int64_t wake_up_tick;
 
 	/* Shared between thread.c and synch.c. */
+
 	struct list_elem elem; /* List element. */
+>>>>>>> bc50280e957b816b12d05401396a85c8fb0c2020
+=======
+
+	/* Shared between thread.c and synch.c. */
+	struct list_elem elem; /* List element. */
+>>>>>>> tjddnr9553
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -107,8 +115,24 @@ struct thread
 #endif
 
 	/* Owned by thread.c. */
+<<<<<<< HEAD
+
+=======
+>>>>>>> tjddnr9553
 	struct intr_frame tf; /* Information for switching */
 	unsigned magic;		  /* Detects stack overflow. */
+
+	int64_t local_tick;
+<<<<<<< HEAD
+>>>>>>> bc50280e957b816b12d05401396a85c8fb0c2020
+=======
+
+	/* TODO: */
+	// int init_priority;
+	struct lock *wait_on_lock;		// 어떠한 락에 대해서 기다리고 있는지
+	struct list donations;			// 내가 어디에 우선순위를 기부했는지 list로 관리
+	struct list_elem donation_elem; // 어떤 원소에게 우선순위를 기부 받았는지 관리
+>>>>>>> tjddnr9553
 };
 
 /* If false (default), use round-robin scheduler.
@@ -134,8 +158,11 @@ const char *thread_name(void);
 
 void thread_exit(void) NO_RETURN;
 void thread_yield(void);
+<<<<<<< HEAD
 void thread_sleep(int64_t ticks);
 void thread_wakeup(void);
+=======
+>>>>>>> tjddnr9553
 
 int thread_get_priority(void);
 void thread_set_priority(int);
@@ -145,7 +172,9 @@ void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
+void thread_sleep(int64_t ticks);
+void wake_up(int64_t ticks);
+bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
 void do_iret(struct intr_frame *tf);
-extern struct list blocked_list;
 
 #endif /* threads/thread.h */
