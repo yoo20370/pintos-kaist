@@ -92,17 +92,6 @@ struct thread
 	enum thread_status status; /* Thread state. */
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
-	int64_t wake_up_tick;
-
-	/* Shared between thread.c and synch.c. */
-
-	struct list_elem elem; /* List element. */
-
-	/* Shared between thread.c and synch.c. */
-	struct list_elem elem; /* List element. */
-
-	/* Shared between thread.c and synch.c. */
-	struct list_elem elem; /* List element. */
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
@@ -136,74 +125,6 @@ extern bool thread_mlfqs;
 
 void thread_init(void);
 void thread_start(void);
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-void thread_tick(void);
-void thread_print_stats(void);
-
-typedef void thread_func(void *aux);
-tid_t thread_create(const char *name, int priority, thread_func *, void *);
-
-void thread_block(void);
-void thread_unblock(struct thread *);
-
-struct thread *thread_current(void);
-tid_t thread_tid(void);
-const char *thread_name(void);
-
-void thread_exit(void) NO_RETURN;
-void thread_yield(void);
-<<<<<<< HEAD
-void thread_sleep(int64_t ticks);
-void thread_wakeup(void);
-=======
->>>>>>> tjddnr9553
-
-int thread_get_priority(void);
-void thread_set_priority(int);
-
-int thread_get_nice(void);
-void thread_set_nice(int);
-int thread_get_recent_cpu(void);
-int thread_get_load_avg(void);
-
-void thread_sleep(int64_t ticks);
-void wake_up(int64_t ticks);
-bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
-void do_iret(struct intr_frame *tf);
-=======
-
-void thread_tick(void);
-void thread_print_stats(void);
-
-typedef void thread_func(void *aux);
-tid_t thread_create(const char *name, int priority, thread_func *, void *);
-
-void thread_block(void);
-void thread_unblock(struct thread *);
-
-struct thread *thread_current(void);
-tid_t thread_tid(void);
-const char *thread_name(void);
-
-void thread_exit(void) NO_RETURN;
-void thread_yield(void);
-
-int thread_get_priority(void);
-void thread_set_priority(int);
-
-int thread_get_nice(void);
-void thread_set_nice(int);
-int thread_get_recent_cpu(void);
-int thread_get_load_avg(void);
-
-void thread_sleep(int64_t ticks);
-void wake_up(int64_t ticks);
-bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
-void do_iret(struct intr_frame *tf);
-bool is_priority_descending(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
-=======
 
 void thread_tick(void);
 void thread_print_stats(void);
@@ -235,6 +156,5 @@ bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
 void do_iret(struct intr_frame *tf);
 bool is_priority_descending(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
 
->>>>>>> tjddnr9553
 
 #endif /* threads/thread.h */

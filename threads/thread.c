@@ -11,7 +11,6 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
-#include "list.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -44,12 +43,6 @@ static struct lock tid_lock;
 
 /* Thread destruction requests */
 static struct list destruction_req;
-
-struct value
-{
-	struct list_elem elem; /* List element. */
-	int value;			   /* Item value. */
-};
 
 /* Statistics. */
 static long long idle_ticks;   /* # of timer ticks spent idle. */
