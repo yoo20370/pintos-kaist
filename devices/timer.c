@@ -95,12 +95,20 @@ timer_elapsed(int64_t then)
 // timer_sleep (int64_t ticks) {
 // 	int64_t start = timer_ticks ();
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 void timer_sleep(int64_t param_ticks)
 { // TODO:
 	int64_t start = timer_ticks();
 
 	if (timer_elapsed(start) < param_ticks)
 		thread_sleep(start + param_ticks);
+=======
+
+>>>>>>> tjddnr9553
+=======
+
+>>>>>>> tjddnr9553
 =======
 
 >>>>>>> tjddnr9553
@@ -147,6 +155,8 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 	int a = 10;
 	ticks++;
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 	thread_tick();
 	if (!list_empty(&blocked_list))
 	{
@@ -154,6 +164,10 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 		if (ticks >= head_next->wake_up_tick)
 			thread_wakeup();
 	}
+=======
+>>>>>>> tjddnr9553
+=======
+>>>>>>> tjddnr9553
 =======
 >>>>>>> tjddnr9553
 

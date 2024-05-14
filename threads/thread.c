@@ -120,9 +120,10 @@ void thread_init(void)
 	lgdt(&gdt_ds);
 
 	/* Init the globla thread context */
-	lock_init (&tid_lock);
-	list_init (&ready_list);
-	list_init (&destruction_req);
+	lock_init(&tid_lock);
+	list_init(&ready_list);
+	list_init(&destruction_req);
+	list_init(&sleep_list);
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread();
@@ -248,9 +249,12 @@ void thread_start(void)
 
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
-void
-thread_tick (void) {
-	struct thread *t = thread_current ();
+/*
+ 각 타이머 tick에서 발생하는 타이머 인터럽트로부터 호출된다. 이 함수는 스레드 통계를 추적하고, 타임 슬라이스가 만료될 때 스케쥴러를 작동시킨다.
+*/
+void thread_tick(void)
+{
+	struct thread *t = thread_current();
 
 	/* Update statistics. */
 	if (t == idle_thread)
