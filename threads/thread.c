@@ -119,6 +119,7 @@ void thread_init(void)
 	init_thread(initial_thread, "main", PRI_DEFAULT);
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid();
+	initial_thread->wait_on_lock = NULL;
 }
 void wake_up(int64_t ticks)
 {
@@ -137,19 +138,21 @@ void wake_up(int64_t ticks)
 		// ticks의 값이 작은 경우만 ready_list로 옮긴다.
 		if (ticks >= currThread->local_tick)
 		{
-			// 조건에 맞는 원소를 sleep_list에서 제거, prev, next를 이용하므로 리스트 필요 없음 
+			// 조건에 맞는 원소를 sleep_list에서 제거, prev, next를 이용하므로 리스트 필요 없음
 			curr_elem = list_remove(curr_elem);
 			// 조건에 맞는 원소를 unblock 해준다.
 			thread_unblock(currThread);
-		} else {
-			// 순서대로 들어가 있기 때문에 조건에 부합하지 않으면 바로 탈출 
+		}
+		else
+		{
+			// 순서대로 들어가 있기 때문에 조건에 부합하지 않으면 바로 탈출
 			break;
 		}
 	}
 	intr_set_level(old_level);
 }
 
-// 정렬 함수에 사용할 함수 선언 
+// 정렬 함수에 사용할 함수 선언
 bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux)
 {
 	struct thread *threadA = list_entry(a, struct thread, elem);
@@ -165,6 +168,51 @@ bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux)
 	}
 }
 
+// 정렬 함수에 사용할 함수 선언
+bool compare_priority(struct list_elem *a, struct list_elem *b, void *aux)
+{
+	struct thread *threadA = list_entry(a, struct thread, elem);
+	struct thread *threadB = list_entry(b, struct thread, elem);
+
+	if (threadA->priority > threadB->priority)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+void preemption()
+{
+
+	if (!list_empty(&ready_list))
+	{
+		struct list_elem *ready_elem = list_begin(&ready_list);
+		struct thread *ready_thread = list_entry(ready_elem, struct thread, elem);
+
+		if (ready_thread->priority > thread_current()->priority)
+		{
+			thread_yield();
+		}
+	}
+	// struct thread *curr_thread = thread_current(); // 현재 실행중인 쓰레드
+	// struct list_elem *wake_up_elem = list_pop_front(&sleep_list);
+	// struct thread *wake_up_thread = list_entry(wake_up_elem, struct thread, elem);
+
+	// if (curr_thread->priority > wake_up_thread->priority)
+	// {
+	// 	return;
+	// }
+	// else
+	// {
+	// 	curr_thread->status = THREAD_READY;
+	// 	list_push_back(&ready_list, &curr_thread->elem);
+	// 	next_thread_to_run();
+	// }
+}
+
 void thread_sleep(int64_t ticks)
 {
 	struct thread *curr = thread_current();
@@ -173,15 +221,15 @@ void thread_sleep(int64_t ticks)
 	// 작업 중 인터럽트 발생을 방지하기 위해 비활성화
 	old_level = intr_disable();
 
-	// sleep하는 쓰레드의 지역 틱을 지정 
+	// sleep하는 쓰레드의 지역 틱을 지정
 	curr->local_tick = ticks;
 
 	// sleep에 넣어주기
 	// list_push_back(&sleep_list, &curr->elem);
-	
+
 	// sleep_list에 정렬해서 넣어줌
 	list_insert_ordered(&sleep_list, &curr->elem, compare_tick, NULL);
-	
+
 	// 현재 스레드를 block 시킨다.
 	thread_block();
 
@@ -315,8 +363,11 @@ void thread_unblock(struct thread *t)
 
 	old_level = intr_disable();
 	ASSERT(t->status == THREAD_BLOCKED);
-	list_push_back(&ready_list, &t->elem);
+	// list_push_back(&ready_list, &t->elem);
+
+	list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL);
 	t->status = THREAD_READY;
+	preemption();
 	intr_set_level(old_level);
 }
 
@@ -389,6 +440,16 @@ void thread_yield(void)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {
+	// if (!list_empty(&ready_list))
+	// {
+	// 	struct list_elem *ready_elem = list_begin(&ready_list);
+	// 	struct thread *ready_thread = list_entry(ready_elem, struct thread, elem);
+
+	// 	if (ready_thread->priority > thread_current()->priority)
+	// 	{
+	// 		thread_yield();
+	// 	}
+	// }
 	thread_current()->priority = new_priority;
 }
 
@@ -609,7 +670,7 @@ thread_launch(struct thread *th)
  * This function modify current thread's status to status and then
  * finds another thread to run and switches to it.
  * It's not safe to call printf() in the schedule(). */
-// 현재 상태를 바꿔주고 schedule 호출 
+// 현재 상태를 바꿔주고 schedule 호출
 static void
 do_schedule(int status)
 {
