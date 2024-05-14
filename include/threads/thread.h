@@ -154,5 +154,6 @@ void thread_sleep(int64_t ticks);
 void wake_up(int64_t ticks);
 bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
 void do_iret(struct intr_frame *tf);
+bool compare_priority(struct list_elem *a, struct list_elem *b, void *aux);
 
 #endif /* threads/thread.h */
