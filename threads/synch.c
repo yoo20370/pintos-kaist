@@ -66,7 +66,8 @@ sema_down (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 	while (sema->value == 0) {
-		list_push_back (&sema->waiters, &thread_current ()->elem);
+		//list_push_back (&sema->waiters, &thread_current ()->elem);
+		list_insert_ordered(&sema->waiters, &thread_current()->elem, compare_priority, NULL);
 		thread_block ();
 	}
 	sema->value--;
@@ -265,13 +266,24 @@ cond_init (struct condition *cond) {
 
    A given condition variable is associated with only a single
    lock, but one lock may be associated with any number of
-   condition variables.  That is, there is a one-to-many mapping
+   condition variables.  That is, there is a/KJ/pintos-kaist/threads one-to-many mapping
    from locks to condition variables.
 
    This function may sleep, so it must not be called within an
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+   /*
+	이 함수는 LOCK을 원자적으로 해제하고 다른 코드에서 COND가 신호를 받을 때까지 대기합니다. 
+	COND가 신호를 받은 후에는 반환하기 전에 LOCK을 다시 획득합니다. 
+	이 함수를 호출하기 전에는 반드시 LOCK이 보유되어야 합니다.
+	이 함수로 구현된 모니터는 "Mesa" 스타일입니다. "Hoare" 스타일과 달리 신호를 보내거나 받는 것이 원자적인 작업이 아닙니다.
+	따라서 대기가 완료된 후에는 보통 호출자가 조건을 다시 확인하고, 필요한 경우 대기를 다시 해야 합니다.
+	특정 조건 변수는 단일 락과 연관되지만, 하나의 락은 여러 조건 변수와 연관될 수 있습니다.
+	즉, 락에서 조건 변수로의 일대다 매핑이 있습니다.
+	이 함수는 sleep할 수 있으므로, 인터럽트 처리기 내에서 호출해서는 안 됩니다. 
+	이 함수는 인터럽트가 비활성화된 상태에서 호출될 수 있지만, sleep해야 하는 경우 인터럽트가 다시 활성화됩니다.
+   */
 void
 cond_wait (struct condition *cond, struct lock *lock) {
 	struct semaphore_elem waiter;
@@ -295,6 +307,13 @@ cond_wait (struct condition *cond, struct lock *lock) {
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to signal a condition variable within an
    interrupt handler. */
+   /*
+	만약 LOCK으로 보호된 COND에 대기 중인 스레드가 있다면, 
+	이 함수는 그 중 하나에게 신호를 보내 대기 상태에서 깨어나도록 합니다. 
+	이 함수를 호출하기 전에는 반드시 LOCK이 보유되어야 합니다.
+	인터럽트 핸들러는 잠금을 획득할 수 없으므로 
+	인터럽트 핸들러 내에서 조건 변수에 신호를 보내려고 시도하는 것은 의미가 없습니다.
+   */
 void
 cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (cond != NULL);

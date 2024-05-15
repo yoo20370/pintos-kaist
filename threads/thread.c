@@ -67,6 +67,7 @@ static void schedule(void);
 static tid_t allocate_tid(void);
 void wake_up(int64_t ticks);
 bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
+void preemption();
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -139,6 +140,7 @@ void wake_up(int64_t ticks)
 		{
 			// 조건에 맞는 원소를 sleep_list에서 제거, prev, next를 이용하므로 리스트 필요 없음 
 			curr_elem = list_remove(curr_elem);
+
 			// 조건에 맞는 원소를 unblock 해준다.
 			thread_unblock(currThread);
 		} else {
@@ -156,6 +158,20 @@ bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux)
 	struct thread *threadB = list_entry(b, struct thread, elem);
 
 	if (threadA->local_tick < threadB->local_tick)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+bool compare_priority(struct list_elem *a, struct list_elem *b, void *aux)
+{
+	struct thread *threadA = list_entry(a, struct thread, elem);
+	struct thread *threadB = list_entry(b, struct thread, elem);
+
+	if (threadA->priority > threadB->priority)
 	{
 		return true;
 	}
@@ -315,11 +331,24 @@ void thread_unblock(struct thread *t)
 
 	old_level = intr_disable();
 	ASSERT(t->status == THREAD_BLOCKED);
-	list_push_back(&ready_list, &t->elem);
+	//list_push_back(&ready_list, &t->elem); 
+	list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL);
 	t->status = THREAD_READY;
+	preemption();
 	intr_set_level(old_level);
 }
+void preemption(){
+	struct thread * curr = thread_current();
+	struct thread * target = list_entry(list_begin(&ready_list), struct thread, elem);
+	if(curr == idle_thread || list_empty(&ready_list)){
+		return;
+	}
+	
+	if(curr->priority < target->priority){
+		thread_yield();
+	} 
 
+}
 /* Returns the name of the running thread. */
 const char *
 thread_name(void)
@@ -381,7 +410,7 @@ void thread_yield(void)
 	// 인터럽트가 겹치면 안 되기 때문에 락 걸어주는 것
 	old_level = intr_disable();
 	if (curr != idle_thread)
-		list_push_back(&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, compare_priority, NULL);
 	do_schedule(THREAD_READY);
 	intr_set_level(old_level);
 }
@@ -390,6 +419,8 @@ void thread_yield(void)
 void thread_set_priority(int new_priority)
 {
 	thread_current()->priority = new_priority;
+	preemption();
+	
 }
 
 /* Returns the current thread's priority. */
