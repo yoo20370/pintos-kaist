@@ -27,7 +27,7 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 // struct list ready_list;
-static struct list *ready_list;
+static struct list ready_list;
 
 static struct list sleep_list;
 
@@ -124,6 +124,7 @@ void thread_init(void)
 	initial_thread->tid = allocate_tid();
 	initial_thread->wait_on_lock = NULL;
 }
+
 void wake_up(int64_t ticks)
 {
 	enum intr_level old_level;
@@ -508,6 +509,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	strlcpy(t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
+	t->initial_priority = priority;
 	t->magic = THREAD_MAGIC;
 }
 
