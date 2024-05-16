@@ -92,9 +92,13 @@ struct thread
 	enum thread_status status; /* Thread state. */
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
+	int64_t local_tick;
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
+	struct lock *wait_on_lock;
+	struct list donors;
+	struct list_elem donors_elem;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -108,14 +112,6 @@ struct thread
 	/* Owned by thread.c. */
 	struct intr_frame tf; /* Information for switching */
 	unsigned magic;		  /* Detects stack overflow. */
-
-	int64_t local_tick;
-
-	/* TODO: */
-	// int init_priority;
-	struct lock *wait_on_lock;		// 어떠한 락에 대해서 기다리고 있는지
-	struct list donations;			// 내가 어디에 우선순위를 기부했는지 list로 관리
-	struct list_elem donation_elem; // 어떤 원소에게 우선순위를 기부 받았는지 관리
 };
 
 /* If false (default), use round-robin scheduler.
@@ -155,6 +151,6 @@ void wake_up(int64_t ticks);
 bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
 void do_iret(struct intr_frame *tf);
 bool is_priority_descending(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
-
+void thread_preempt(void);
 
 #endif /* threads/thread.h */
