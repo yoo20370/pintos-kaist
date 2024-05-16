@@ -67,10 +67,10 @@ void sema_down(struct semaphore *sema)
 	old_level = intr_disable();
 	while (sema->value == 0)
 	{
-		// list_push_back (&sema->waiters, &thread_current ()->elem);
 		list_insert_ordered(&sema->waiters, &thread_current()->elem, compare_priority, NULL);
 		thread_block();
 	}
+
 	sema->value--;
 	intr_set_level(old_level);
 }
@@ -111,10 +111,11 @@ void sema_up(struct semaphore *sema)
 	ASSERT(sema != NULL);
 
 	old_level = intr_disable();
+	sema->value++;	//unblock을 하는 과정에서 우선순위 높은 쓰레드에게 실행권한을 뺏기게 되므로 미리 value를 올림
 	if (!list_empty(&sema->waiters))
-		thread_unblock(list_entry(list_pop_front(&sema->waiters),
-								  struct thread, elem));
-	sema->value++;
+	{	
+		thread_unblock(list_entry(list_pop_front(&sema->waiters), struct thread, elem));
+	}
 	intr_set_level(old_level);
 }
 
@@ -191,8 +192,20 @@ void lock_acquire(struct lock *lock)
 	ASSERT(!intr_context());
 	ASSERT(!lock_held_by_current_thread(lock));
 
+	enum intr_level old_level;
+	old_level = intr_disable();
+
+	struct thread *current_thread = thread_current();
+
+	// 락을 가진 쓰레드가 있고, 현재 실행중인 쓰레드가 락을 가진 쓰레드보다 우선순위가 높다면 기부를 해라
+	if (lock->holder != NULL && lock->holder->priority < current_thread->priority)
+	{
+		lock->holder->priority = current_thread->priority;
+	}
+	intr_set_level(old_level);
+
 	sema_down(&lock->semaphore);
-	lock->holder = thread_current();
+	lock->holder = current_thread;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -224,6 +237,12 @@ void lock_release(struct lock *lock)
 {
 	ASSERT(lock != NULL);
 	ASSERT(lock_held_by_current_thread(lock));
+
+	// 현재 스레드의 우선순위를 원래 우선순위로 복원
+	if (lock->holder->priority != lock->holder->init_priority)
+	{
+		lock->holder->priority = lock->holder->init_priority;
+	}
 
 	lock->holder = NULL;
 	sema_up(&lock->semaphore);

@@ -125,7 +125,6 @@ void thread_init(void)
 }
 void wake_up(int64_t ticks)
 {
-
 	enum intr_level old_level;
 	struct list_elem *curr_elem = list_begin(&sleep_list);
 
@@ -186,7 +185,7 @@ bool compare_priority(struct list_elem *a, struct list_elem *b, void *aux)
 	}
 }
 
-// 선점 함수 
+// 선점 함수
 void preemption()
 {
 	if (list_empty(&ready_list) || thread_current() == idle_thread)
@@ -304,6 +303,8 @@ tid_t thread_create(const char *name, int priority,
 	init_thread(t, name, priority);
 	tid = t->tid = allocate_tid();
 
+	/* TODO: */
+
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
 	t->tf.rip = (uintptr_t)kernel_thread;
@@ -353,8 +354,8 @@ void thread_unblock(struct thread *t)
 	ASSERT(t->status == THREAD_BLOCKED);
 	list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL);
 	t->status = THREAD_READY;
-	preemption();
 	intr_set_level(old_level);
+	preemption();
 }
 
 /* Returns the name of the running thread. */
@@ -426,7 +427,10 @@ void thread_yield(void)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {
+	if (thread_current() == idle_thread)
+		return;
 	thread_current()->priority = new_priority;
+	thread_current()->init_priority = new_priority; // 놓침
 	preemption();
 }
 
@@ -527,7 +531,10 @@ init_thread(struct thread *t, const char *name, int priority)
 	strlcpy(t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
+	t->init_priority = priority; // 놓침
 	t->magic = THREAD_MAGIC;
+
+	list_init(&t->donors);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
