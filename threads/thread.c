@@ -331,12 +331,12 @@ void thread_unblock(struct thread *t)
 
 	old_level = intr_disable();
 	ASSERT(t->status == THREAD_BLOCKED);
-	//list_push_back(&ready_list, &t->elem); 
+	t->status = THREAD_READY;
 	list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL);
-	//t->status = THREAD_READY;
 	preemption();
 	intr_set_level(old_level);
 }
+
 void preemption(){
 	struct thread * curr = thread_current();
 	struct thread * target = list_entry(list_begin(&ready_list), struct thread, elem);
@@ -418,7 +418,11 @@ void thread_yield(void)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {
+	if(thread_current() == idle_thread){
+		return;
+	}
 	thread_current()->priority = new_priority;
+	thread_current()->original_priority = new_priority;
 	preemption();
 	
 }
@@ -520,6 +524,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	strlcpy(t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
+	t->original_priority = priority;
 	t->magic = THREAD_MAGIC;
 }
 
