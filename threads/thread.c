@@ -113,8 +113,8 @@ void thread_init(void)
 
 	/* Init the globla thread context */
 	lock_init(&tid_lock);
-	list_init(&ready_list);
 	list_init(&destruction_req);
+	list_init(&ready_list);
 	list_init(&sleep_list);
 
 	/* Set up a thread structure for the running thread. */
@@ -287,8 +287,8 @@ allocate_tid(void)
 	static tid_t next_tid = 1;
 	tid_t tid;
 
-	tid = next_tid++;
 	lock_acquire(&tid_lock);
+	tid = next_tid++;
 	lock_release(&tid_lock);
 
 	return tid;
@@ -332,9 +332,9 @@ void thread_preempt(void)
 	if (thread_current() == idle_thread || list_empty(&ready_list))
 		return;
 
-	struct thread *first_thread_in_ready = list_entry(list_front(&ready_list), struct thread, elem);
+	struct thread *first_thread_in_ready = list_entry(list_begin(&ready_list), struct thread, elem);
 
-	if (thread_current() != first_thread_in_ready && thread_current()->priority < first_thread_in_ready->priority)
+	if (thread_current()->priority < first_thread_in_ready->priority)
 		thread_yield(); // Yields the CPU to the scheduler, which picks a new thread to run
 }
 
@@ -391,9 +391,9 @@ void thread_exit(void)
    may be scheduled again immediately at the scheduler's whim. */
 void thread_yield(void)
 {
-	enum intr_level old_level = intr_disable();
-
 	ASSERT(!intr_context());
+
+	enum intr_level old_level = intr_disable();
 
 	if (thread_current() != idle_thread)
 		list_insert_ordered(&ready_list, &thread_current()->elem, is_priority_descending, NULL);
@@ -489,6 +489,7 @@ static void
 kernel_thread(thread_func *function, void *aux)
 {
 	ASSERT(function != NULL);
+	// printf("entering kernel, function = %p, qux=%p\n", function, aux);
 
 	intr_enable(); /* The scheduler runs with interrupts off. */
 	function(aux); /* Execute the thread function. */
@@ -655,7 +656,7 @@ schedule(void)
 	ASSERT(is_thread(next));
 	/* Mark us as running. */
 	next->status = THREAD_RUNNING;
-	// thread_preempt();
+
 	/* Start new time slice. */
 	thread_ticks = 0;
 
