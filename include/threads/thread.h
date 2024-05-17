@@ -91,6 +91,7 @@ struct thread {
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
+	int original_priority;
 
 	/* Shared between thread.c and synch.c. */
 	
@@ -110,6 +111,10 @@ struct thread {
 	unsigned magic;                     /* Detects stack overflow. */
 	
 	int64_t local_tick;
+	struct lock * wait_on_lock;
+	struct list donors;
+	struct list_elem d_elem;
+	
 };
 
 /* If false (default), use round-robin scheduler.
