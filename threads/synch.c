@@ -176,12 +176,36 @@ lock_init (struct lock *lock) {
 	lock->holder = NULL;
 	sema_init (&lock->semaphore, 1);
 }
+
+bool compare_priority2(struct list_elem *a, struct list_elem *b, void *aux)
+{
+	struct thread *threadA = list_entry(a, struct thread, d_elem);
+	struct thread *threadB = list_entry(b, struct thread, d_elem);
+
+	if (threadA->priority < threadB->priority)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
 void donate_priority(struct lock *lock){
+
+	enum intr_level old_level;
+	old_level = intr_disable();
+	// 락을 쓰레드가 점유하고 있다면 
 	if(lock->holder != NULL){
+		// wait on lock
+		thread_current() -> wait_on_lock = lock;
 		if( lock->holder -> priority < thread_current() -> priority){
 			lock -> holder -> priority = thread_current() -> priority;
+			// donors에 추가 
 		}
+		list_push_back(&lock->holder->donors, &thread_current()-> d_elem);
 	}
+	intr_set_level(old_level);
 }
 /* Acquires LOCK, sleeping until it becomes available if
    necessary.  The lock must not already be held by the current
@@ -206,7 +230,8 @@ lock_acquire (struct lock *lock) {
 	
 	sema_down (&lock->semaphore);
 	
-	lock->holder = thread_current ();
+	lock -> holder = thread_current ();
+	lock -> holder -> wait_on_lock = NULL;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -227,9 +252,44 @@ lock_try_acquire (struct lock *lock) {
 		lock->holder = thread_current ();
 	return success;
 }
-void remove_thread(struct lock *lock){
-	if(lock != NULL)
-		lock->holder -> priority = lock->holder ->original_priority;
+
+void donate_remove(struct lock *lock){
+	enum intr_level old_level;
+
+	old_level = intr_disable();
+	if(lock != NULL){
+		// 기부자가 있는 경우
+		if(!list_empty(&lock->holder->donors)){
+
+			// donor 첫 번째 요소 찾기 
+			struct list_elem *curr_elem = list_begin(&lock->holder->donors);
+			struct list_elem *remove_elem;
+
+			// donors 순회 
+			while(curr_elem != list_end(&lock->holder->donors)){
+				
+				// 만약 락을 해제하는 
+				if(lock ==  list_entry(curr_elem, struct thread, d_elem )->wait_on_lock){
+					//remove_elem = curr_elem;
+					remove_elem = curr_elem;
+					curr_elem = curr_elem->next;
+					list_remove(remove_elem);
+				} else {
+					curr_elem = curr_elem->next;
+				}	
+			}
+			if(!list_empty(&lock->holder->donors)){
+				// 해당 홀더가 또 다른 락을 점유하고 있다면
+				lock->holder->priority = list_entry(list_max(&lock->holder->donors, compare_priority, NULL), struct thread, d_elem)->priority;
+			} else {
+
+				// 해당 홀더가 다른 락을 점유하고 있지 않다면 
+				lock -> holder -> priority = lock -> holder -> original_priority;
+			}	
+		}
+	}
+	intr_set_level(old_level);
+	//lock -> holder -> priority = lock -> holder -> original_priority;
 }
 /* Releases LOCK, which must be owned by the current thread.
    This is lock_release function.
@@ -241,7 +301,7 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
-	remove_thread(lock);
+	donate_remove(lock);
 
 	lock->holder = NULL;
 	sema_up (&lock->semaphore);
