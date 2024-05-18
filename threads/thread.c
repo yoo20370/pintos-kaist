@@ -352,7 +352,7 @@ void thread_unblock(struct thread *t)
 
 	old_level = intr_disable();
 	ASSERT(t->status == THREAD_BLOCKED);
-	list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL);
+	list_insert_ordered(&ready_list, &t->elem, &compare_priority, NULL);
 	t->status = THREAD_READY;
 	intr_set_level(old_level);
 	preemption();
@@ -419,7 +419,7 @@ void thread_yield(void)
 	// 인터럽트가 겹치면 안 되기 때문에 락 걸어주는 것
 	old_level = intr_disable();
 	if (curr != idle_thread)
-		list_insert_ordered(&ready_list, &curr->elem, compare_priority, NULL);
+		list_insert_ordered(&ready_list, &curr->elem, &compare_priority, NULL);
 	do_schedule(THREAD_READY);
 	intr_set_level(old_level);
 }
@@ -431,6 +431,7 @@ void thread_set_priority(int new_priority)
 		return;
 	thread_current()->priority = new_priority;
 	thread_current()->init_priority = new_priority; // 놓침
+	donate_update(thread_current());
 	preemption();
 }
 
@@ -533,7 +534,6 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->priority = priority;
 	t->init_priority = priority; // 놓침
 	t->magic = THREAD_MAGIC;
-
 	list_init(&t->donors);
 }
 

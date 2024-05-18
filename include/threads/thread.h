@@ -114,8 +114,8 @@ struct thread
 	/* TODO: */
 	int init_priority;				// 우선순위 기부 받기 전 원래 우선순위 저장
 	struct lock *wait_on_lock;		// 어떠한 락에 대해서 기다리고 있는지
-	struct list donors;			// 나에게 우선순위를 기부한 스레드들의 리스트
-	struct list_elem donation_elem; // 내가 다른 스레드에게 우선순위를 기부했을 때 사용되는 리스트 요소
+	struct list donors;				// 나에게 우선순위를 기부한 스레드들의 리스트
+	struct list_elem d_elem; // 내가 다른 스레드에게 우선순위를 기부했을 때 사용되는 리스트 요소
 };
 
 /* If false (default), use round-robin scheduler.
@@ -155,5 +155,7 @@ void wake_up(int64_t ticks);
 bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
 void do_iret(struct intr_frame *tf);
 bool compare_priority(struct list_elem *a, struct list_elem *b, void *aux);
+bool check_cond_priority(struct list_elem *a, struct list_elem *b, void *aux);
+void donate_update(struct thread *t);
 
 #endif /* threads/thread.h */
