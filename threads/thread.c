@@ -340,12 +340,14 @@ void thread_unblock(struct thread *t)
 }
 
 void preemption(){
+	
 	struct thread * curr = thread_current();
 	struct thread * target = list_entry(list_begin(&ready_list), struct thread, elem);
-	if(curr == idle_thread || list_empty(&ready_list)){
+
+	if(curr == idle_thread){
 		return;
 	}
-	
+
 	if(curr->priority < target->priority){
 		thread_yield();
 	} 
@@ -423,8 +425,9 @@ void thread_set_priority(int new_priority)
 	if(thread_current() == idle_thread){
 		return;
 	}
-	thread_current()->priority = new_priority;
+	//thread_current()->priority = new_priority;
 	thread_current()->original_priority = new_priority;
+	donate_update();
 	preemption();
 	
 }

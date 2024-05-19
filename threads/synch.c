@@ -112,7 +112,7 @@ sema_up (struct semaphore *sema) {
 	old_level = intr_disable ();
 	sema->value++;
 	if (!list_empty (&sema->waiters)){
-		
+		list_sort(&sema->waiters, compare_priority, NULL);
 		thread_unblock (list_entry (list_pop_front(&sema->waiters),
 					struct thread, elem));
 	}
@@ -193,19 +193,23 @@ bool compare_priority2(struct list_elem *a, struct list_elem *b, void *aux)
 }
 void donate_priority(struct lock *lock){
 
+	struct thread * curr_thread = thread_current();
 	enum intr_level old_level;
-	old_level = intr_disable();
-	// 락을 쓰레드가 점유하고 있다면 
-	if(lock->holder != NULL){
-		// wait on lock
-		thread_current() -> wait_on_lock = lock;
-		if( lock->holder -> priority < thread_current() -> priority){
-			lock -> holder -> priority = thread_current() -> priority;
-			// donors에 추가 
+
+	int i = 0;
+	for(i = 0 ; i < 8; i++){
+		if(curr_thread -> wait_on_lock != NULL){
+			if( curr_thread -> wait_on_lock -> holder -> priority < curr_thread -> priority ){
+				curr_thread -> wait_on_lock -> holder -> priority = curr_thread -> priority;
+				curr_thread = curr_thread -> wait_on_lock -> holder;
+				// donors에 추가 
+			} else {
+				return;
+			}
+		} else {
+			return;
 		}
-		list_push_back(&lock->holder->donors, &thread_current()-> d_elem);
 	}
-	intr_set_level(old_level);
 }
 /* Acquires LOCK, sleeping until it becomes available if
    necessary.  The lock must not already be held by the current
@@ -224,7 +228,11 @@ lock_acquire (struct lock *lock) {
 	enum intr_level old_level;
 	old_level = intr_disable();
 	
-	donate_priority(lock);
+	if(lock->holder != NULL){
+		thread_current() -> wait_on_lock = lock;
+		list_push_back(&lock->holder->donors, &thread_current()-> d_elem);
+		donate_priority(lock);
+	}
 	
 	intr_set_level(old_level);
 	
@@ -291,6 +299,19 @@ void donate_remove(struct lock *lock){
 	intr_set_level(old_level);
 	//lock -> holder -> priority = lock -> holder -> original_priority;
 }
+
+void 
+donate_update(){
+	struct thread* curr = thread_current();
+
+	curr->priority = curr->original_priority;
+	if(!list_empty(&curr->donors)){
+		struct thread* max_thread = list_entry(list_max(&curr->donors, compare_priority, NULL), struct thread, d_elem);
+		if(curr->priority < max_thread->priority ){
+			curr -> priority = max_thread ->priority;
+		}
+	}
+}
 /* Releases LOCK, which must be owned by the current thread.
    This is lock_release function.
 
@@ -302,7 +323,7 @@ lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
 	donate_remove(lock);
-
+	donate_update();
 	lock->holder = NULL;
 	sema_up (&lock->semaphore);
 }
