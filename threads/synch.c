@@ -192,6 +192,8 @@ void lock_acquire(struct lock *lock)
 
 	if (lock->holder != NULL && lock->holder->priority < thread_current()->priority)
 	{
+		// list_push_front(&lock->holder->donors, list_entry(list_begin(&lock->semaphore.waiters), struct thread, elem));
+
 		lock->holder->priority = thread_current()->priority;
 	}
 	sema_down(&lock->semaphore);
@@ -227,7 +229,7 @@ void lock_release(struct lock *lock)
 {
 	ASSERT(lock != NULL);
 	ASSERT(lock_held_by_current_thread(lock));
-	lock->holder->priority = lock->holder->initial_priority;
+
 	lock->holder = NULL;
 	sema_up(&lock->semaphore);
 }
