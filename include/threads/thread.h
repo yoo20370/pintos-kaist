@@ -92,6 +92,9 @@ struct thread
 	enum thread_status status; /* Thread state. */
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
+	int initial_priority;
+	int nice;
+	int recent_cpu;
 	int64_t local_tick;
 
 	/* Shared between thread.c and synch.c. */
@@ -118,6 +121,8 @@ struct thread
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
+bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
+bool set_priority_descend(struct list_elem *a, struct list_elem *b, void *aux);
 
 void thread_init(void);
 void thread_start(void);
@@ -146,11 +151,10 @@ void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
+void do_iret(struct intr_frame *tf);
 void thread_sleep(int64_t ticks);
 void wake_up(int64_t ticks);
-bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
-void do_iret(struct intr_frame *tf);
-bool is_priority_descending(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
+
 void thread_preempt(void);
 
 #endif /* threads/thread.h */

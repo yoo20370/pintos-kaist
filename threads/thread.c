@@ -27,8 +27,8 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 // struct list ready_list;
-static struct list *ready_list;
-
+static struct list all_list;
+static struct list ready_list;
 static struct list sleep_list;
 
 /* Idle thread. */
@@ -58,16 +58,12 @@ static unsigned thread_ticks; /* # of timer ticks since last yield. */
 bool thread_mlfqs;
 
 static void kernel_thread(thread_func *, void *aux);
-
 static void idle(void *aux UNUSED);
 static struct thread *next_thread_to_run(void);
 static void init_thread(struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule(void);
 static tid_t allocate_tid(void);
-void wake_up(int64_t ticks);
-bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
-bool is_priority_descending(struct list_elem *a, struct list_elem *b, void *aux);
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -126,12 +122,9 @@ void thread_init(void)
 }
 void wake_up(int64_t ticks)
 {
-	enum intr_level old_level;
 	struct list_elem *curr_elem = list_begin(&sleep_list);
+	enum intr_level old_level = intr_disable();
 
-	old_level = intr_disable();
-
-	// sleep_list 순회
 	while (curr_elem != list_end(&sleep_list))
 	{
 		struct thread *currThread = list_entry(curr_elem, struct thread, elem);
@@ -142,34 +135,9 @@ void wake_up(int64_t ticks)
 			thread_unblock(currThread);
 		}
 		else
-		{
 			break;
-		}
 	}
 	intr_set_level(old_level);
-}
-
-bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux)
-{
-	struct thread *threadA = list_entry(a, struct thread, elem);
-	struct thread *threadB = list_entry(b, struct thread, elem);
-
-	if (threadA->local_tick < threadB->local_tick)
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
-bool is_priority_descending(struct list_elem *a, struct list_elem *b, void *aux UNUSED)
-{
-	struct thread *threadA = list_entry(a, struct thread, elem);
-	struct thread *threadB = list_entry(b, struct thread, elem);
-
-	return threadA->priority > threadB->priority;
 }
 
 void thread_sleep(int64_t ticks)
@@ -321,7 +289,7 @@ void thread_unblock(struct thread *t)
 	ASSERT(t->status == THREAD_BLOCKED);
 	enum intr_level old_level = intr_disable();
 
-	list_insert_ordered(&ready_list, &t->elem, is_priority_descending, NULL);
+	list_insert_ordered(&ready_list, &t->elem, set_priority_descend, NULL);
 	t->status = THREAD_READY;
 	intr_set_level(old_level);
 }
@@ -395,7 +363,7 @@ void thread_yield(void)
 	enum intr_level old_level = intr_disable();
 
 	if (thread_current() != idle_thread)
-		list_insert_ordered(&ready_list, &thread_current()->elem, is_priority_descending, NULL);
+		list_insert_ordered(&ready_list, &thread_current()->elem, set_priority_descend, NULL);
 	do_schedule(THREAD_READY);
 
 	intr_set_level(old_level);
@@ -426,8 +394,7 @@ void thread_set_nice(int nice UNUSED)
 /* Returns the current thread's nice value. */
 int thread_get_nice(void)
 {
-	/* TODO: Your implementation goes here */
-	return 0;
+	return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
@@ -682,4 +649,27 @@ schedule(void)
 		 * of current running. */
 		thread_launch(next);
 	}
+}
+
+bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux)
+{
+	struct thread *threadA = list_entry(a, struct thread, elem);
+	struct thread *threadB = list_entry(b, struct thread, elem);
+
+	if (threadA->local_tick < threadB->local_tick)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool set_priority_descend(struct list_elem *a, struct list_elem *b, void *aux)
+{
+	struct thread *threadA = list_entry(a, struct thread, elem);
+	struct thread *threadB = list_entry(b, struct thread, elem);
+
+	return threadA->priority > threadB->priority;
 }
