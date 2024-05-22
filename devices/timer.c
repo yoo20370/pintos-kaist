@@ -129,6 +129,7 @@ timer_print_stats (void) {
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
+	int a = 10;
 	ticks++;
 
 	// 각 스레드의 경과 시간 
