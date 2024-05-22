@@ -27,6 +27,26 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 
+typedef struct
+{
+  char *nodeArr[100];
+  int top;
+} Stack;
+
+void push(Stack *s, char *data)
+{
+  s->nodeArr[s->top++] = data;
+}
+
+char *pop(Stack *s)
+{
+  if (s->top == 0)
+  {
+    return NULL;
+  }
+  return s->nodeArr[--(s->top)];
+}
+
 /* General process initializer for initd and other process. */
 static void
 process_init (void) {
@@ -41,6 +61,8 @@ process_init (void) {
 tid_t
 process_create_initd (const char *file_name) {
 	char *fn_copy;
+	char * saveptr;
+	char * token;
 	tid_t tid;
 
 	/* Make a copy of FILE_NAME.
@@ -50,8 +72,12 @@ process_create_initd (const char *file_name) {
 		return TID_ERROR;
 	strlcpy (fn_copy, file_name, PGSIZE);
 
+	token = strtok_r(fn_copy, " ", &saveptr);
+	
+	strlcpy (fn_copy, file_name, PGSIZE);
+
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
+	tid = thread_create (token, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
 	return tid;
@@ -63,9 +89,7 @@ initd (void *f_name) {
 #ifdef VM
 	supplemental_page_table_init (&thread_current ()->spt);
 #endif
-
 	process_init ();
-
 	if (process_exec (f_name) < 0)
 		PANIC("Fail to launch initd\n");
 	NOT_REACHED ();
@@ -162,6 +186,7 @@ error:
  * Returns -1 on fail. */
 int
 process_exec (void *f_name) {
+	
 	char *file_name = f_name;
 	bool success;
 
@@ -204,6 +229,7 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+	while(1);
 	return -1;
 }
 
@@ -329,6 +355,13 @@ load (const char *file_name, struct intr_frame *if_) {
 	bool success = false;
 	int i;
 
+	char* saveptr;
+	char* token;
+	int size = 0;
+	// strlcpy(token, file_name, strlen(file_name));
+
+	file_name = strtok_r(file_name, " ", &saveptr);
+
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create ();
 	if (t->pml4 == NULL)
@@ -416,8 +449,43 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+	uintptr_t phys_base = if_->rsp;
+	Stack stack;
+	//push(&stack, file_name);
+	for (token = strtok_r(NULL, " ", &saveptr); token; token = strtok_r(NULL, " ", &saveptr))
+   	{
+	  push(&stack, token);
+   	}
+	printf("stack-top : %d\n",stack.top);
 
+	while(stack.top != 0){
+		char *temp = pop(&stack);
+		if_->rsp -= strlen(temp)+1;
+		memcpy(if_->rsp, temp, strlen(temp)+1);
+		size += strlen(temp)+1;
+		hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
+	}
+
+	if(size % 8 != 0){
+		int padding_size = 8 - (size % 8);
+		uint8_t padding[padding_size];
+		memset(padding, 0, padding_size);
+		if_->rsp -= padding_size;
+		memcpy(if_->rsp, padding , padding_size);
+	}
+
+	char* endpoint = "\0";
+	if_->rsp -= sizeof(endpoint);
+	memcpy(if_->rsp, endpoint, sizeof(endpoint));
+	hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
+
+
+	
+	
+
+	
 	success = true;
+	
 
 done:
 	/* We arrive here whether the load is successful or not. */
