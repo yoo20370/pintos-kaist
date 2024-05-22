@@ -27,6 +27,26 @@ static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
 
+typedef struct
+{
+	char *nodeArr[100];
+	int top;
+} Stack;
+
+void push(Stack *s, char *data)
+{
+	s->nodeArr[s->top++] = data;
+}
+
+char *pop(Stack *s)
+{
+	if (s->top == 0)
+	{
+		return NULL;
+	}
+	return s->nodeArr[--(s->top)];
+}
+
 /* General process initializer for initd and other process. */
 static void
 process_init(void)
@@ -43,7 +63,8 @@ process_init(void)
 tid_t process_create_initd(const char *file_name)
 {
 	char *fn_copy;
-	char *token, *save_ptr;
+	char *saveptr;
+	char *token;
 	tid_t tid;
 	printf("===========Process create : %s ===========\n", file_name);
 
@@ -54,11 +75,14 @@ tid_t process_create_initd(const char *file_name)
 		return TID_ERROR;
 	strlcpy(fn_copy, file_name, PGSIZE);
 
-	token = strtok_r(fn_copy, " ", &save_ptr);
+	token = strtok_r(fn_copy, " ", &saveptr);
+	strlcpy(fn_copy, file_name, PGSIZE);
+
+	token = strtok_r(fn_copy, " ", &saveptr);
+
 	strlcpy(fn_copy, file_name, PGSIZE);
 
 	/* Create a new thread to execute FILE_NAME. */
-	// 2. 쓰레드를 생성하고
 	tid = thread_create(token, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
@@ -74,7 +98,6 @@ initd(void *f_name)
 #ifdef VM
 	supplemental_page_table_init(&thread_current()->spt);
 #endif
-
 	process_init();
 	if (process_exec(f_name) < 0)
 		PANIC("Fail to launch initd\n");
@@ -175,6 +198,7 @@ error:
  * Returns -1 on fail. */
 int process_exec(void *f_name)
 {
+
 	char *file_name = f_name;
 	char *save_ptr, *token;
 	bool success;
@@ -353,8 +377,15 @@ load(const char *file_name, struct intr_frame *if_)
 	char *save_ptr, *token, *arg_token;
 	off_t file_ofs;
 	bool success = false;
-	int size, padding, char_length, args_count;
-	int i, j;
+	int i;
+
+	char *saveptr;
+	char *token;
+	int size = 0;
+	// strlcpy(token, file_name, strlen(file_name));
+
+	file_name = strtok_r(file_name, " ", &saveptr);
+
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create();
 	if (t->pml4 == NULL)
@@ -448,65 +479,39 @@ load(const char *file_name, struct intr_frame *if_)
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
-	size = 0;
-	args_count = 0;
-	j = 0;
 	uintptr_t phys_base = if_->rsp;
-	for (arg_token = strtok_r(save_ptr, " ", &save_ptr); arg_token; arg_token = strtok_r(NULL, " ", &save_ptr))
+	Stack stack;
+	// push(&stack, file_name);
+	for (token = strtok_r(NULL, " ", &saveptr); token; token = strtok_r(NULL, " ", &saveptr))
 	{
-		string_args[j] = arg_token;
-		char_length = strlen(arg_token) + 1; // 인자 개별의 사이즈
-		size += char_length;				 // 4의 배수로 계산하기 위한 인자들 사이즈의 합
-
-		args_count++;
-		printf("string args[%d]: %s\n", j, arg_token);
-		printf("전체 길이 : %d \n", size);
-		printf("인자 길이 : %d \n", char_length);
-		printf("인자 개수 : %d \n", args_count);
-		j++;
+		push(&stack, token);
 	}
+	printf("stack-top : %d\n", stack.top);
 
-	// 인자 푸시하기
-	while (j >= 0)
+	while (stack.top != 0)
 	{
-		printf("초기 stack top : %p\n", if_->rsp);
-		if_->rsp -= sizeof(string_args[j] + 1);	// 문자열의 길이에 null 문자를 포함하여 크기 계산
-		printf("변경 stack top : %p\n", if_->rsp);
-		memcpy(if_->rsp, string_args[j], sizeof(string_args[j] + 1)); // 문자열을 스택에 복사
+		char *temp = pop(&stack);
+		if_->rsp -= strlen(temp) + 1;
+		memcpy(if_->rsp, temp, strlen(temp) + 1);
+		size += strlen(temp) + 1;
 		hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
-		j--;
 	}
 
-	if (size % 4 != 0)
+	if (size % 8 != 0)
 	{
-		padding = 4 - (size % 4); // 패딩을 설정
+		int padding_size = 8 - (size % 8);
+		uint8_t padding[padding_size];
+		memset(padding, 0, padding_size);
+		if_->rsp -= padding_size;
+		memcpy(if_->rsp, padding, padding_size);
 	}
-	if_->rsp -= sizeof(padding);
-	memcpy(if_->rsp, padding, sizeof(padding));
+
+	char *endpoint = "\0";
+	if_->rsp -= sizeof(endpoint);
+	memcpy(if_->rsp, endpoint, sizeof(endpoint));
 	hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
 
-	printf("패딩 길이 : %d \n", padding);
-
-	// 인자 : first, second, third
-	size += padding;
-
-	printf("총합 : %d \n", size);
-
-	// printf("초기 stack top : %p\n", if_->rsp);
-	// if_->rsp -= size;
-	// printf("변경 stack top : %p\n", if_->rsp);
-
-	// memcpy(if_->rsp, 0, 4);
-	// printf("변경 stack top : %p\n", if_->rsp);
-
-	// while ((file_name = strtok_r(NULL, " ", &save_ptr)) != NULL)
-	// {
-	// 	printf("%s\n", file_name);
-	// }
-	// memcpy();
-
 	success = true;
-	printf("===========끝났어용1===========\n");
 
 done:
 	/* We arrive here whether the load is successful or not. */
