@@ -452,19 +452,28 @@ load (const char *file_name, struct intr_frame *if_) {
 	uintptr_t phys_base = if_->rsp;
 
 	Stack stack;
-	printf("%s\n", file_name);
+	int lenArr[100] = {0};
+	int idx = 0;
+	int proglen;
+	int stack_size;
+
 	push(&stack, file_name);
 	for (token = strtok_r(NULL, " ", &saveptr); token; token = strtok_r(NULL, " ", &saveptr))
    	{
 	  push(&stack, token);
+	  lenArr[idx++] = strlen(token) + 1;
    	}
-	printf("stack-top : %d\n",stack.top);
+	lenArr[idx] = strlen(file_name) + 1;
+
+	stack_size = stack.top;
 
 	while(stack.top != 0){
+
 		char *temp = pop(&stack);
-		if_->rsp -= strlen(temp)+1;
+		if_->rsp -= (strlen(temp)+1);
 		memcpy(if_->rsp, temp, strlen(temp)+1);
 		size += strlen(temp)+1;
+		//hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
 	}
 	//printf("aaa %d\n", size);
 	if(size % 8 != 0){
@@ -474,20 +483,38 @@ load (const char *file_name, struct intr_frame *if_) {
 		if_->rsp -= padding_size;
 		memcpy(if_->rsp, padding , padding_size);
 		size += padding_size;
-		hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
+		//hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
 	}
 
+	// start argv[argc] 
 	char* endpoint = "\0";
 	if_->rsp -= sizeof(endpoint);
 	memcpy(if_->rsp, endpoint, sizeof(endpoint));
-	hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
 	size += 8;
+	char* addr = (char*)(if_->rsp + size);
+	// end argv
 
-	//printf("bbb %d\n", size);
 
-	char * temp = if_->rsp;
-	printf("%s\n", *(temp-32));
+	for(int i = 0; i < stack_size; i++){
+		addr -= lenArr[i];
+		if_->rsp -= 8;
+		memset(if_->rsp, addr, 8);
+		printf("%X %s\n", addr , addr);
+	}
 
+	//printf("%X %s\n", temp + size - 7 , temp + size - 7);
+	//printf("%X %s\n", temp + size - 7 - 12, temp + size - 7 - 12);
+	// char * hello = "hello";
+	// if_->rsp -= 7;
+	hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
+	//printf("%x %s\n", if_->rsp, *((char*)if_->rsp));
+
+
+	// //printf("bbb %d\n", size);
+
+	// char* temp = if_->rsp;
+
+	// printf("aaa %s\n", (temp+size));
 
 	success = true;
 	
