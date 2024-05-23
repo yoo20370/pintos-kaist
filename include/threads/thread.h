@@ -92,16 +92,11 @@ struct thread
 	enum thread_status status; /* Thread state. */
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
-	int initial_priority;
-	int nice;
-	int recent_cpu;
-	int64_t local_tick;
+	int original_priority;
 
 	/* Shared between thread.c and synch.c. */
+
 	struct list_elem elem; /* List element. */
-	struct lock *wait_on_lock;
-	struct list donors;
-	struct list_elem donors_elem;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -115,6 +110,11 @@ struct thread
 	/* Owned by thread.c. */
 	struct intr_frame tf; /* Information for switching */
 	unsigned magic;		  /* Detects stack overflow. */
+
+	int64_t local_tick;
+	struct lock *wait_on_lock;
+	struct list donors;
+	struct list_elem d_elem;
 };
 
 /* If false (default), use round-robin scheduler.
@@ -155,6 +155,10 @@ void do_iret(struct intr_frame *tf);
 void thread_sleep(int64_t ticks);
 void wake_up(int64_t ticks);
 
-void thread_preempt(void);
+void thread_sleep(int64_t ticks);
+void wake_up(int64_t ticks);
+bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
+void do_iret(struct intr_frame *tf);
+bool compare_priority(struct list_elem *a, struct list_elem *b, void *aux);
 
 #endif /* threads/thread.h */

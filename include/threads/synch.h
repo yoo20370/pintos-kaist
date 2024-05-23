@@ -37,7 +37,7 @@ void cond_init (struct condition *);
 void cond_wait (struct condition *, struct lock *);	// 조건이 충족될 때까지 대기하도록함
 void cond_signal (struct condition *, struct lock *);	// 조건을 충족했음을 알림
 void cond_broadcast (struct condition *, struct lock *);
-
+void donate_update();
 /* Optimization barrier.
  *
  * The compiler will not reorder operations across an

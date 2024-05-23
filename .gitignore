@@ -1,3 +1,7 @@
-*/build
-/.vscode/
-/tests
+tests/
+.vscode/
+build/
+**/build/
+filesys.dsk
+*.o
+*.bin
