@@ -229,7 +229,7 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	while(1);
+	for(int i = 0; i < 500000000; i ++) {}
 	return -1;
 }
 
@@ -355,6 +355,8 @@ load (const char *file_name, struct intr_frame *if_) {
 	bool success = false;
 	int i;
 
+	int p_size = sizeof(void*);
+
 	char* saveptr;
 	char* token;
 	int size = 0;
@@ -452,73 +454,61 @@ load (const char *file_name, struct intr_frame *if_) {
 	uintptr_t phys_base = if_->rsp;
 
 	Stack stack;
-	int lenArr[100] = {0};
+	char* addArr[100] = {0};
 	int idx = 0;
-	int proglen;
 	int stack_size;
 
+	// 문자열 반전을 위한 스택 
 	push(&stack, file_name);
 	for (token = strtok_r(NULL, " ", &saveptr); token; token = strtok_r(NULL, " ", &saveptr))
    	{
 	  push(&stack, token);
-	  lenArr[idx++] = strlen(token) + 1;
    	}
-	lenArr[idx] = strlen(file_name) + 1;
-
 	stack_size = stack.top;
 
+	// 문자열 추가
 	while(stack.top != 0){
-
 		char *temp = pop(&stack);
 		if_->rsp -= (strlen(temp)+1);
 		memcpy(if_->rsp, temp, strlen(temp)+1);
-		size += strlen(temp)+1;
-		//hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
+		addArr[idx] = (char*)if_->rsp;
+		printf("%s\n", addArr[idx]);
+		idx++;
+		size += strlen(temp) + 1;
 	}
-	//printf("aaa %d\n", size);
-	if(size % 8 != 0){
-		int padding_size = 8 - (size % 8);
-		uint8_t padding[padding_size];
-		memset(padding, 0, padding_size);
+
+	// 패딩 
+	if (size % p_size != 0)
+	{
+		int padding_size = p_size - (size % p_size);
 		if_->rsp -= padding_size;
-		memcpy(if_->rsp, padding , padding_size);
-		size += padding_size;
-		//hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
+		memset(if_->rsp, 0, padding_size);
 	}
 
-	// start argv[argc] 
-	char* endpoint = "\0";
-	if_->rsp -= sizeof(endpoint);
-	memcpy(if_->rsp, endpoint, sizeof(endpoint));
-	size += 8;
-	char* addr = (char*)(if_->rsp + size);
-	// end argv
+	// 구분자
+	if_->rsp -= p_size;
+	memset(if_->rsp, 0, p_size);
 
-
+	// 주소 삽입 
 	for(int i = 0; i < stack_size; i++){
-		addr -= lenArr[i];
-		if_->rsp -= 8;
-		memset(if_->rsp, addr, 8);
-		printf("%X %s\n", addr , addr);
+		if_->rsp -= p_size;
+		memcpy(if_->rsp, &addArr[i], p_size);
+		printf("%x\n",if_->rsp);
+
 	}
 
-	//printf("%X %s\n", temp + size - 7 , temp + size - 7);
-	//printf("%X %s\n", temp + size - 7 - 12, temp + size - 7 - 12);
-	// char * hello = "hello";
-	// if_->rsp -= 7;
+	// argv 레지스터에 저장 
+	if_->R.rsi = (char**)if_->rsp;
+	// argc 레지스터에 저장 
+	if_->R.rdi = (int)stack_size;
+
+	// return address 저장 
+	if_->rsp -= p_size;
+	memset(if_->rsp, 0, p_size);
+
 	hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
-	//printf("%x %s\n", if_->rsp, *((char*)if_->rsp));
-
-
-	// //printf("bbb %d\n", size);
-
-	// char* temp = if_->rsp;
-
-	// printf("aaa %s\n", (temp+size));
-
 	success = true;
 	
-
 done:
 	/* We arrive here whether the load is successful or not. */
 	file_close (file);
