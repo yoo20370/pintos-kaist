@@ -450,8 +450,10 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 	uintptr_t phys_base = if_->rsp;
+
 	Stack stack;
-	//push(&stack, file_name);
+	printf("%s\n", file_name);
+	push(&stack, file_name);
 	for (token = strtok_r(NULL, " ", &saveptr); token; token = strtok_r(NULL, " ", &saveptr))
    	{
 	  push(&stack, token);
@@ -463,27 +465,30 @@ load (const char *file_name, struct intr_frame *if_) {
 		if_->rsp -= strlen(temp)+1;
 		memcpy(if_->rsp, temp, strlen(temp)+1);
 		size += strlen(temp)+1;
-		hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
 	}
-
+	//printf("aaa %d\n", size);
 	if(size % 8 != 0){
 		int padding_size = 8 - (size % 8);
 		uint8_t padding[padding_size];
 		memset(padding, 0, padding_size);
 		if_->rsp -= padding_size;
 		memcpy(if_->rsp, padding , padding_size);
+		size += padding_size;
+		hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
 	}
 
 	char* endpoint = "\0";
 	if_->rsp -= sizeof(endpoint);
 	memcpy(if_->rsp, endpoint, sizeof(endpoint));
 	hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
+	size += 8;
+
+	//printf("bbb %d\n", size);
+
+	char * temp = if_->rsp;
+	printf("%s\n", *(temp-32));
 
 
-	
-	
-
-	
 	success = true;
 	
 
