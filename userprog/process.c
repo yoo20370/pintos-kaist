@@ -22,10 +22,12 @@
 #include "vm/vm.h"
 #endif
 
+#define ALIGNMENT 8
+
 struct argument
 {
 	char string[128];
-	int64_t address;
+	size_t address;
 	struct list_elem elem;
 };
 
@@ -34,6 +36,9 @@ process_cleanup(void);
 static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
+static void setup_arglist(const char *file_name);
+static void parse_args(struct argument *arg, char *token, char *saveptr);
+static void push_args(struct intr_frame *if_, struct list *arguments);
 
 static struct list arg_list;
 
@@ -244,6 +249,7 @@ void process_exit(void)
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
+	// printf ("%s: exit(%d)\n", ...);
 
 	process_cleanup();
 }
@@ -461,10 +467,11 @@ load(const char *file_name, struct intr_frame *if_)
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 	setup_arglist(fn_copy);
-	printf("list back: %s\n", list_entry(list_back(&arg_list), struct argument, elem)->string);
-
+	push_args(if_, &arg_list);
+	hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
+	printf("rdi: %lld\n", if_->R.rdi);
+	printf("rsi: %p\n", if_->R.rsi);
 	palloc_free_page(fn_copy);
-
 	success = true;
 
 done:
@@ -473,7 +480,55 @@ done:
 	return success;
 }
 
-void setup_arglist(const char *file_name)
+static void push_args(struct intr_frame *if_, struct list *arguments)
+{
+	struct list_elem *e = list_back(&arg_list);
+	int total_length = 0;
+
+	for (e; e != list_head(&arg_list); e = list_prev(e))
+	{
+		struct argument *arg = list_entry(e, struct argument, elem);
+		size_t length = strlen(arg->string) + 1;
+		char *token = arg->string;
+
+		if_->rsp -= length;
+		memcpy(if_->rsp, token, length);
+		arg->address = &(if_->rsp);
+		total_length += length;
+	}
+
+	/* Fill the padding with zeroes */
+	if (total_length % ALIGNMENT)
+	{
+		int remainder = ALIGNMENT - (total_length % ALIGNMENT);
+
+		if_->rsp -= remainder;
+		memset((void *)if_->rsp, 0, remainder);
+	}
+
+	/* Push the address for each arg*/
+	e = list_back(&arg_list);
+	for (e; e != list_head(&arg_list); e = list_prev(e))
+	{
+		struct argument *arg = list_entry(e, struct argument, elem);
+		size_t ADDR_LENGTH = 8;
+		size_t arg_addr = arg->address;
+
+		if_->rsp -= ADDR_LENGTH;
+		memcpy(if_->rsp, arg_addr, ADDR_LENGTH);
+	}
+	if_->R.rsi = if_->rsp; // set the start address
+
+	/* Push the fake return address */
+	printf("before: %lld\n", if_->rsp);
+	if_->rsp -= ALIGNMENT;
+	printf("after: %lld\n", if_->rsp);
+	memset(if_->rsp, 0, ALIGNMENT);
+
+	if_->R.rdi = list_size(&arg_list);
+}
+
+static void setup_arglist(const char *file_name)
 {
 	char *token, *saveptr;
 	list_init(&arg_list);
@@ -481,9 +536,15 @@ void setup_arglist(const char *file_name)
 	for (token = strtok_r(file_name, " ", &saveptr); token; token = strtok_r(NULL, " ", &saveptr))
 	{
 		struct argument *curr_arg = palloc_get_page(0);
-		strlcpy(curr_arg->string, token, PGSIZE);
-		list_push_back(&arg_list, &curr_arg->elem);
+		parse_args(curr_arg, token, saveptr);
 	}
+}
+
+static void parse_args(struct argument *arg, char *token, char *saveptr)
+{
+	strlcpy(arg->string, token, PGSIZE);
+	arg->string[strlen(token)] = '\0';
+	list_push_back(&arg_list, &arg->elem);
 }
 
 /* Checks whether PHDR describes a valid, loadable segment in
