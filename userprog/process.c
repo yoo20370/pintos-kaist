@@ -59,23 +59,18 @@ process_init(void)
  * before process_create_initd() returns. Returns the initd's
  * thread id, or TID_ERROR if the thread cannot be created.
  * Notice that THIS SHOULD BE CALLED ONCE. */
-// 1. 프로세스를 생성하고
 tid_t process_create_initd(const char *file_name)
 {
 	char *fn_copy;
 	char *saveptr;
 	char *token;
 	tid_t tid;
-	printf("===========Process create : %s ===========\n", file_name);
 
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
 	fn_copy = palloc_get_page(0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
-	strlcpy(fn_copy, file_name, PGSIZE);
-
-	token = strtok_r(fn_copy, " ", &saveptr);
 	strlcpy(fn_copy, file_name, PGSIZE);
 
 	token = strtok_r(fn_copy, " ", &saveptr);
@@ -93,8 +88,6 @@ tid_t process_create_initd(const char *file_name)
 static void
 initd(void *f_name)
 {
-	printf("===========Process initd : %s ===========\n", f_name);
-
 #ifdef VM
 	supplemental_page_table_init(&thread_current()->spt);
 #endif
@@ -200,9 +193,8 @@ int process_exec(void *f_name)
 {
 
 	char *file_name = f_name;
-	char *save_ptr, *token;
 	bool success;
-	printf("===========Process exec : %s ===========\n", f_name);
+
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -210,23 +202,19 @@ int process_exec(void *f_name)
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
+
 	/* We first kill the current context */
 	process_cleanup();
 
-	printf("'%s'\n", f_name);
-
 	/* And then load the binary */
-	success = load(f_name, &_if);
-
-	token = strtok_r(f_name, " ", &save_ptr);
+	success = load(file_name, &_if);
 
 	/* If load failed, quit. */
-	palloc_free_page(token);
+	palloc_free_page(file_name);
 	if (!success)
 		return -1;
 
 	/* Start switched process. */
-	printf("===========끝났어용2===========\n");
 	do_iret(&_if);
 	NOT_REACHED();
 }
@@ -373,8 +361,6 @@ load(const char *file_name, struct intr_frame *if_)
 	struct thread *t = thread_current();
 	struct ELF ehdr;
 	struct file *file = NULL;
-	char *string_args[20];
-	char *save_ptr, *token, *arg_token;
 	off_t file_ofs;
 	bool success = false;
 	int i;
@@ -392,11 +378,6 @@ load(const char *file_name, struct intr_frame *if_)
 		goto done;
 	process_activate(thread_current());
 
-	token = strtok_r(file_name, " ", &save_ptr);
-	// 첫번째 파일 이름만 출력
-	printf("'%s'\n", token);
-
-	printf("===========Process load : %s ===========\n", file_name);
 	/* Open executable file. */
 	file = filesys_open(file_name);
 	if (file == NULL)
@@ -470,45 +451,68 @@ load(const char *file_name, struct intr_frame *if_)
 			break;
 		}
 	}
+
 	/* Set up stack. */
-	if (!setup_stack(if_)) // 유저 스택을 초기화
+	if (!setup_stack(if_))
 		goto done;
 
 	/* Start address. */
-	if_->rip = ehdr.e_entry; // 진입점
+	if_->rip = ehdr.e_entry;
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 	uintptr_t phys_base = if_->rsp;
+
 	Stack stack;
-	// push(&stack, file_name);
+	int lenArr[100] = {0};
+	int idx = 0;
+	int proglen;
+	int stack_size;
+	char *addr_list[20];
+
+	push(&stack, file_name);
 	for (token = strtok_r(NULL, " ", &saveptr); token; token = strtok_r(NULL, " ", &saveptr))
 	{
 		push(&stack, token);
 	}
-	printf("stack-top : %d\n", stack.top);
 
+	stack_size = stack.top;
+
+	// 인자 넣기
 	while (stack.top != 0)
 	{
 		char *temp = pop(&stack);
+		printf("temp : %s\n", temp);
+		printf("이동 전 %x\n", if_->rsp);
 		if_->rsp -= strlen(temp) + 1;
 		memcpy(if_->rsp, temp, strlen(temp) + 1);
+		addr_list[idx] = (char *)if_->rsp;
+		printf("이동 후 %x\n", addr_list[idx]);
+		printf("%s\n", addr_list[idx]);
+		idx++;
 		size += strlen(temp) + 1;
-		hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
 	}
 
+	// 패딩 넣기
 	if (size % 8 != 0)
 	{
 		int padding_size = 8 - (size % 8);
-		uint8_t padding[padding_size];
-		memset(padding, 0, padding_size);
 		if_->rsp -= padding_size;
-		memcpy(if_->rsp, padding, padding_size);
+		memset(if_->rsp, 0, padding_size);
 	}
 
-	char *endpoint = "\0";
-	if_->rsp -= sizeof(endpoint);
-	memcpy(if_->rsp, endpoint, sizeof(endpoint));
+	// 구분자 넣기
+	if_->rsp -= 8;
+	memset(if_->rsp, 0, 8);
+
+	// 인자 담긴 주소 넣기(rsp)
+	for (int i = 0; i < stack_size; i++)
+	{
+		if_->rsp -= 8;
+		memcpy(if_->rsp, &addr_list[i], sizeof(void *));
+		printf("%p\n", addr_list[i]);
+	}
+
 	hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
 
 	success = true;
