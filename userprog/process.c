@@ -73,9 +73,7 @@ tid_t process_create_initd(const char *file_name)
 		return TID_ERROR;
 	strlcpy(fn_copy, file_name, PGSIZE);
 
-	token = strtok_r(fn_copy, " ", &saveptr);
-
-	strlcpy(fn_copy, file_name, PGSIZE);
+	token = strtok_r(file_name, " ", &saveptr);
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create(token, PRI_DEFAULT, initd, fn_copy);
@@ -233,8 +231,11 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	while (1)
-		;
+	// while (1)
+	// 	;
+	for (int i = 0; i < 300000000; i++)
+	{
+	}
 	return -1;
 }
 
@@ -466,7 +467,7 @@ load(const char *file_name, struct intr_frame *if_)
 	Stack stack;
 	int lenArr[100] = {0};
 	int idx = 0;
-	int proglen;
+	int args_count = 1;
 	int stack_size;
 	char *addr_list[20];
 
@@ -474,6 +475,7 @@ load(const char *file_name, struct intr_frame *if_)
 	for (token = strtok_r(NULL, " ", &saveptr); token; token = strtok_r(NULL, " ", &saveptr))
 	{
 		push(&stack, token);
+		args_count++;
 	}
 
 	stack_size = stack.top;
@@ -482,13 +484,9 @@ load(const char *file_name, struct intr_frame *if_)
 	while (stack.top != 0)
 	{
 		char *temp = pop(&stack);
-		printf("temp : %s\n", temp);
-		printf("이동 전 %x\n", if_->rsp);
 		if_->rsp -= strlen(temp) + 1;
 		memcpy(if_->rsp, temp, strlen(temp) + 1);
 		addr_list[idx] = (char *)if_->rsp;
-		printf("이동 후 %x\n", addr_list[idx]);
-		printf("%s\n", addr_list[idx]);
 		idx++;
 		size += strlen(temp) + 1;
 	}
@@ -510,10 +508,17 @@ load(const char *file_name, struct intr_frame *if_)
 	{
 		if_->rsp -= 8;
 		memcpy(if_->rsp, &addr_list[i], sizeof(void *));
-		printf("%p\n", addr_list[i]);
 	}
 
-	hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
+	// if_->R.rsi = (if_->rsp + 8);	// rsp
+	if_->R.rsi = if_->rsp; // rsp
+	if_->R.rdi = args_count;
+
+	// 리턴 주소(가짜 주소)
+	if_->rsp -= sizeof(void *);
+	memset(if_->rsp, 0, sizeof(void *));
+
+	// hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
 
 	success = true;
 
