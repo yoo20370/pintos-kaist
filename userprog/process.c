@@ -72,9 +72,7 @@ process_create_initd (const char *file_name) {
 		return TID_ERROR;
 	strlcpy (fn_copy, file_name, PGSIZE);
 
-	token = strtok_r(fn_copy, " ", &saveptr);
-	
-	strlcpy (fn_copy, file_name, PGSIZE);
+	token = strtok_r(file_name, " ", &saveptr);
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create (token, PRI_DEFAULT, initd, fn_copy);
@@ -472,7 +470,6 @@ load (const char *file_name, struct intr_frame *if_) {
 		if_->rsp -= (strlen(temp)+1);
 		memcpy(if_->rsp, temp, strlen(temp)+1);
 		addArr[idx] = (char*)if_->rsp;
-		printf("%s\n", addArr[idx]);
 		idx++;
 		size += strlen(temp) + 1;
 	}
@@ -493,20 +490,17 @@ load (const char *file_name, struct intr_frame *if_) {
 	for(int i = 0; i < stack_size; i++){
 		if_->rsp -= p_size;
 		memcpy(if_->rsp, &addArr[i], p_size);
-		printf("%x\n",if_->rsp);
-
 	}
 
 	// argv 레지스터에 저장 
-	if_->R.rsi = (char**)if_->rsp;
+	if_->R.rsi = if_->rsp;
 	// argc 레지스터에 저장 
-	if_->R.rdi = (int)stack_size;
+	if_->R.rdi = stack_size;
 
 	// return address 저장 
 	if_->rsp -= p_size;
 	memset(if_->rsp, 0, p_size);
 
-	hex_dump(if_->rsp, if_->rsp, phys_base - if_->rsp, true);
 	success = true;
 	
 done:
