@@ -28,6 +28,8 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+#define USERPROG
+
 /* A kernel thread or user process.
  *
  * Each thread structure is stored in its own 4 kB page.  The
@@ -99,6 +101,7 @@ struct thread {
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
+	// pml4 페이지 테이블 
 	uint64_t *pml4;                     /* Page map level 4 */
 #endif
 #ifdef VM
@@ -114,6 +117,13 @@ struct thread {
 	struct lock * wait_on_lock;
 	struct list donors;
 	struct list_elem d_elem;
+
+	// exit status
+	int exit_status;
+
+	// file 
+	struct file* fdt[64];
+	int next_fd;
 	
 };
 
