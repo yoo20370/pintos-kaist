@@ -27,7 +27,7 @@
 struct argument
 {
 	char string[128];
-	size_t address;
+	uintptr_t *address;
 	struct list_elem elem;
 };
 
@@ -75,7 +75,7 @@ tid_t process_create_initd(const char *file_name)
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create(token, PRI_DEFAULT, initd, fn_copy);
-	printf("tid: %d\n", tid);
+	// printf("tid: %d\n", tid);
 	palloc_free_page(fn_copy_for_token);
 
 	if (tid == TID_ERROR)
@@ -234,11 +234,11 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	while (1)
+	for (int i = 0; i < 999999999; i++)
 		;
 
 	process_exit();
-	// return -1;
+	return 0;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
@@ -468,10 +468,11 @@ load(const char *file_name, struct intr_frame *if_)
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 	setup_arglist(fn_copy);
 	push_args(if_, &arg_list);
-	hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
-	printf("rdi: %lld\n", if_->R.rdi);
-	printf("rsi: %p\n", if_->R.rsi);
 	palloc_free_page(fn_copy);
+	/* Debug */
+	// hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
+	// printf("rdi: %lld\n", if_->R.rdi);
+	// printf("rsi: %p\n", if_->R.rsi);
 	success = true;
 
 done:
@@ -488,12 +489,14 @@ static void push_args(struct intr_frame *if_, struct list *arguments)
 	for (e; e != list_head(&arg_list); e = list_prev(e))
 	{
 		struct argument *arg = list_entry(e, struct argument, elem);
+		// printf("%s \n", arg->string);
 		size_t length = strlen(arg->string) + 1;
 		char *token = arg->string;
 
 		if_->rsp -= length;
 		memcpy(if_->rsp, token, length);
-		arg->address = &(if_->rsp);
+		arg->address = if_->rsp;
+		// printf("if_->rsp: %x\n", arg->address);
 		total_length += length;
 	}
 
@@ -506,23 +509,28 @@ static void push_args(struct intr_frame *if_, struct list *arguments)
 		memset((void *)if_->rsp, 0, remainder);
 	}
 
+	/* Push 0 divider */
+	if_->rsp -= ALIGNMENT;
+	memset((void *)if_->rsp, 0, ALIGNMENT);
+
 	/* Push the address for each arg*/
 	e = list_back(&arg_list);
 	for (e; e != list_head(&arg_list); e = list_prev(e))
 	{
 		struct argument *arg = list_entry(e, struct argument, elem);
+		// printf("arg->string: %s \n", arg->string);
 		size_t ADDR_LENGTH = 8;
-		size_t arg_addr = arg->address;
+		char *arg_addr = arg->address;
 
 		if_->rsp -= ADDR_LENGTH;
-		memcpy(if_->rsp, arg_addr, ADDR_LENGTH);
+		memcpy(if_->rsp, &arg_addr, ADDR_LENGTH);
 	}
 	if_->R.rsi = if_->rsp; // set the start address
 
 	/* Push the fake return address */
-	printf("before: %lld\n", if_->rsp);
+	// printf("before: %lld\n", if_->rsp);
 	if_->rsp -= ALIGNMENT;
-	printf("after: %lld\n", if_->rsp);
+	// printf("after: %lld\n", if_->rsp);
 	memset(if_->rsp, 0, ALIGNMENT);
 
 	if_->R.rdi = list_size(&arg_list);

@@ -731,3 +731,4 @@ allocate_tid(void)
 
 		return threadA->priority > threadB->priority;
 	}
+}
