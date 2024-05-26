@@ -96,11 +96,9 @@ remove(const char *file){
 	return filesys_remove(file);
 }
 
-int find_table_empty(struct thread* curr){
-	// TODO: 시간 남으면 하드코딩 변경 필요.
-	int i = 0;
-	for(i = 2; i < 64; i++)
-		if(curr->fdt[i] == NULL || curr->fdt[i] == 0) return i;
+int find_table_empty(int fd, struct thread* curr){
+	for(; fd < 64; fd++)
+		if(curr->fdt[fd] == NULL || curr->fdt[fd] == 0) return fd;
 	return -1;
 }
 
@@ -110,13 +108,16 @@ open(const char *file){
 	struct thread *curr = thread_current();
 	struct file* open_file = filesys_open(file);
 	int next_fd = 0;
-	if(open_file == NULL) return -1;
+	if(open_file == NULL || open_file == 0) return -1;
 
 	// 파일을 연 스레드에 페이지 테이블 할당 필요 
-	curr->fdt[thread_current()->next_fd] = open_file;
-	// TODO: 순회해서 가장 앞 fd를 찾아서 next_fd 값으로 변경해줘야 함 
-	next_fd = thread_current()->next_fd;
+	curr->fdt[curr->next_fd] = open_file;
+	next_fd = curr->next_fd;
 
+	// next_fd 다음 위치부터 탐색 시작
+	next_fd = find_table_empty(next_fd + 1, curr);
+	if(next_fd == -1) exit(-1);
+	curr->next_fd = next_fd;
 	return next_fd;
 
 }
@@ -136,14 +137,12 @@ filesize(int fd){
 int read(int fd, void* buffer, unsigned length){
 	if(fd < 0) return -1;
 	struct file* curr = thread_current()->fdt[fd];
-	if(curr == NULL) return -1;
+	if(curr == NULL || curr == 0) return -1;
 	int result;
 	if(fd == 0){
-		result = input_getc();
-		return result;
+		return input_getc();
 	} else {
-		result = file_read(curr, buffer, file_length(curr));
-		return result;
+		return file_read(curr, buffer, file_length(curr));
 	}
 }
 
@@ -153,12 +152,16 @@ void
 close(int fd){
 	struct thread * curr = thread_current();
 	struct file * curr_file = curr->fdt[fd];
-	int next_fd = 0;
-	if(curr_file == NULL || curr_file == 0) exit(-1);
+
+	// if(curr_file == NULL || curr_file == 0) return;
+	// 파일 닫음 
 	file_close(curr_file);
-	next_fd = find_table_empty(curr);
-	if(next_fd != -1) exit(-1);
-	curr->next_fd = next_fd;
+
+	curr->fdt[fd] = NULL;
+	// TODO: 앞 쪽에 있을 수 있음 
+
+	if(fd < curr->next_fd)
+		curr->next_fd = fd; 
 	
 }
 
@@ -221,6 +224,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			break;
 
 		case SYS_READ :
+			check_addr(f->R.rsi);
 			f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 			break;
 
