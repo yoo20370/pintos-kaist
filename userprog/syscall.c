@@ -64,21 +64,32 @@ halt(void){
 
 void 
 exit(int status){
-	struct thread *cur = thread_current();
-	cur->exit_status = status;
-	printf("%s: exit(%d)\n", cur->name , status);
+	struct thread *curr_t = thread_current();
+	curr_t->exit_status = status;
+	printf("%s: exit(%d)\n", curr_t->name , status);
 	thread_exit();
 
 }
 
 int 
 write (int fd, const void *buffer, unsigned length){
+
+	struct thread* curr_t = thread_current();
+	struct file * curr_f;
+
+	if(fd < 0) return 0;
+
 	if(fd == 1){
 		putbuf(buffer, length);
 		return length;
 
 	} else {
-		return -1;
+		curr_f = curr_t->fdt[fd];
+		if(curr_f == NULL || curr_f == 0 || length < 0) return 0;
+		if(length == 0) return 0;
+
+		return file_write(curr_f, buffer, length);
+
 	}
 }
 
@@ -96,29 +107,29 @@ remove(const char *file){
 	return filesys_remove(file);
 }
 
-int find_table_empty(int fd, struct thread* curr){
+int find_table_empty(int fd, struct thread* curr_t){
 	for(; fd < 64; fd++)
-		if(curr->fdt[fd] == NULL || curr->fdt[fd] == 0) return fd;
+		if(curr_t->fdt[fd] == NULL || curr_t->fdt[fd] == 0) return fd;
 	return -1;
 }
 
 // 파일 이름에 해당하는 파일 
 int 
 open(const char *file){	
-	struct thread *curr = thread_current();
+	struct thread *curr_t = thread_current();
 	struct file* open_file = filesys_open(file);
 	int temp_fd = 0;
 	int fd = 0;
 	if(open_file == NULL || open_file == 0) return -1;
 
 	// 파일을 연 스레드에 페이지 테이블 할당 필요 
-	curr->fdt[curr->next_fd] = open_file;
-	fd = curr->next_fd;
+	curr_t->fdt[curr_t->next_fd] = open_file;
+	fd = curr_t->next_fd;
 
 	// next_fd 다음 위치부터 탐색 시작
-	temp_fd = find_table_empty(fd + 1, curr);
+	temp_fd = find_table_empty(fd + 1, curr_t);
 	if(temp_fd == -1) return -1; // 반환값 -1
-	curr->next_fd = temp_fd;
+	curr_t->next_fd = temp_fd;
 	
 	return fd;
 
@@ -126,20 +137,20 @@ open(const char *file){
 
 int
 filesize(int fd){
-	struct thread* curr;
+	struct thread* curr_t;
 
 	if(fd < 2) exit(-1);
-	curr = thread_current()->fdt[fd];
+	curr_t = thread_current()->fdt[fd];
 
-	if(curr == NULL) return 0;
-	return file_length(curr);	
+	if(curr_t == NULL) return 0;
+	return file_length(curr_t);	
 
 }
 
 int read(int fd, void* buffer, unsigned length){
 	if(fd < 0) return -1;
-	struct file* curr = thread_current()->fdt[fd];
-	if(curr == NULL || curr == 0 || length < 0) return -1;
+	struct file* curr_f = thread_current()->fdt[fd];
+	if(curr_f == NULL || curr_f == 0 || length < 0) return -1;
 	
 	if(fd == 0){ 
 		char * buf = (char*)buffer;
@@ -152,7 +163,7 @@ int read(int fd, void* buffer, unsigned length){
 		if(length == 0){
 			return 0;
 		}		
-		return file_read(curr, buffer, file_length(curr));
+		return file_read(curr_f, buffer, file_length(curr_f));
 	}
 }
 
@@ -160,17 +171,17 @@ int read(int fd, void* buffer, unsigned length){
 
 void 
 close(int fd){
-	struct thread * curr = thread_current();
-	struct file * curr_file = curr->fdt[fd];
+	struct thread * curr_t = thread_current();
+	struct file * curr_file = curr_t->fdt[fd];
 
 	if(curr_file == NULL || curr_file == 0) return;
 	// 파일 닫음 
 	file_close(curr_file);
 
-	curr->fdt[fd] = NULL;
+	curr_t->fdt[fd] = NULL;
 
-	if(fd < curr->next_fd)
-		curr->next_fd = fd;
+	if(fd < curr_t->next_fd)
+		curr_t->next_fd = fd;
 }
 
 bool 
@@ -191,7 +202,6 @@ void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
 	// 시스템 콜
-	struct thread* current = thread_current();
 	int number = f->R.rax;
 
 	//printf("%d\n", number);
