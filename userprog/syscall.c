@@ -139,15 +139,19 @@ filesize(int fd){
 int read(int fd, void* buffer, unsigned length){
 	if(fd < 0) return -1;
 	struct file* curr = thread_current()->fdt[fd];
-	if(curr == NULL || curr == 0) return -1;
+	if(curr == NULL || curr == 0 || length < 0) return -1;
 	
-	if(fd == 0){
+	if(fd == 0){ 
 		char * buf = (char*)buffer;
 		for(unsigned i = 0 ; i < length; i++){
 			buf[i] = input_getc();
 		}
 		return length;
 	} else {
+
+		if(length == 0){
+			return 0;
+		}		
 		return file_read(curr, buffer, file_length(curr));
 	}
 }
@@ -164,11 +168,9 @@ close(int fd){
 	file_close(curr_file);
 
 	curr->fdt[fd] = NULL;
-	// TODO: 앞 쪽에 있을 수 있음 
 
 	if(fd < curr->next_fd)
-		curr->next_fd = fd; 
-	
+		curr->next_fd = fd;
 }
 
 bool 
