@@ -96,11 +96,11 @@ remove(const char *file){
 	return filesys_remove(file);
 }
 
-int find_table_empty(int fd, struct thread* curr){
-	for(; fd < 64; fd++){
-		if(curr->fdt[fd] == NULL || curr->fdt[fd] == 0) 
-			return fd;
-	}
+int find_table_empty(struct thread* curr){
+	// TODO: 시간 남으면 하드코딩 변경 필요.
+	int i = 0;
+	for(i = 2; i < 64; i++)
+		if(curr->fdt[i] == NULL || curr->fdt[i] == 0) return i;
 	return -1;
 }
 
@@ -113,16 +113,12 @@ open(const char *file){
 	if(open_file == NULL) return -1;
 
 	// 파일을 연 스레드에 페이지 테이블 할당 필요 
-	curr->fdt[curr->next_fd] = open_file;
-	next_fd = curr->next_fd;
+	curr->fdt[thread_current()->next_fd] = open_file;
+	// TODO: 순회해서 가장 앞 fd를 찾아서 next_fd 값으로 변경해줘야 함 
+	next_fd = thread_current()->next_fd;
 
-	// next_fd 다음 위치부터 탐색 시작
-	next_fd = find_table_empty(next_fd + 1, curr);
-
-	//
-	if(next_fd == -1) exit(-1);
-	curr->next_fd = next_fd;
 	return next_fd;
+
 }
 
 int
@@ -157,14 +153,12 @@ void
 close(int fd){
 	struct thread * curr = thread_current();
 	struct file * curr_file = curr->fdt[fd];
-
-	// if(curr_file == NULL || curr_file == 0) exit(-1);
-	// 파일 닫음 
+	int next_fd = 0;
+	if(curr_file == NULL || curr_file == 0) exit(-1);
 	file_close(curr_file);
-	curr->fdt[fd] = NULL;
-	
-	if(fd < curr->next_fd)
-		curr->next_fd = fd; 
+	next_fd = find_table_empty(curr);
+	if(next_fd != -1) exit(-1);
+	curr->next_fd = next_fd;
 	
 }
 
