@@ -124,18 +124,25 @@ int read(int fd, void* buffer, unsigned length){
 	if(fd < 0) return -1;
 	struct file* curr = thread_current()->fdt[fd];
 	if(curr == NULL) return -1;
-
+	int result;
 	if(fd == 0){
-		return input_getc();
+		result = input_getc();
+		printf("fd = 0 : %d\n", result);
+		return result;
 	} else {
-		return file_read(curr, buffer, file_length(curr));
+		result = file_read(curr, buffer, file_length(curr));
+		printf("file_read : %d\n", result);
+		return result;
 	}
 }
 
 void 
 close(int fd){
-	struct file * curr = thread_current()->fdt[fd];
-	if(curr == NULL) return;
+	struct thread * curr = thread_current();
+	struct file * curr_file = curr->fdt[fd];
+	printf("%d\n", curr_file);
+	if(curr_file == NULL) return;
+	curr->next_fd--;
 	file_close(curr);
 }
 
