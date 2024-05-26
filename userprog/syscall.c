@@ -96,15 +96,27 @@ remove(const char *file){
 	return filesys_remove(file);
 }
 
+int find_table_empty(int fd, struct thread* curr){
+	for(; fd < 64; fd++)
+		if(curr->fdt[fd] == NULL || curr->fdt[fd] == 0) return fd;
+	return -1;
+}
+
 // 파일 이름에 해당하는 파일 
 int 
 open(const char *file){	
+	struct thread *curr = thread_current();
 	struct file* open_file = filesys_open(file);
+	int next_fd = 0;
 	if(open_file == NULL) return -1;
 
 	// 파일을 연 스레드에 페이지 테이블 할당 필요 
-	thread_current()->fdt[thread_current()->next_fd] = open_file;
-	return thread_current()->next_fd++;
+	curr->fdt[curr->next_fd] = open_file;
+	next_fd = curr->next_fd;
+
+	// next_fd 다음 위치부터 탐색 시작
+	curr->next_fd = find_table_empty(next_fd + 1, curr);
+	return next_fd;
 
 }
 
@@ -127,23 +139,28 @@ int read(int fd, void* buffer, unsigned length){
 	int result;
 	if(fd == 0){
 		result = input_getc();
-		printf("fd = 0 : %d\n", result);
 		return result;
 	} else {
 		result = file_read(curr, buffer, file_length(curr));
-		printf("file_read : %d\n", result);
 		return result;
 	}
 }
+
+
 
 void 
 close(int fd){
 	struct thread * curr = thread_current();
 	struct file * curr_file = curr->fdt[fd];
-	printf("%d\n", curr_file);
-	if(curr_file == NULL) return;
-	curr->next_fd--;
-	file_close(curr);
+
+	// if(curr_file == NULL || curr_file == 0) exit(-1);
+	// 파일 닫음 
+	file_close(curr_file);
+	curr->fdt[fd] = NULL;
+	
+	if(fd < curr->next_fd)
+		curr->next_fd = fd; 
+	
 }
 
 bool 
