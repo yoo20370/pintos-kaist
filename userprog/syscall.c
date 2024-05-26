@@ -92,7 +92,6 @@ create (const char *file, unsigned initial_size){
 bool 
 remove(const char *file){
 	if(file == NULL) return false;
-
 	// TODO: 열려있다면 반환 필요 
 	return filesys_remove(file);
 }
@@ -104,8 +103,7 @@ open(const char *file){
 	if(open_file == NULL) return -1;
 
 	// TODO: 파일을 연 스레드에 페이지 테이블 할당 필요 
-	thread_current()->fdt[thread_current()->next_fd] = &open_file;
-	printf("%x\n",thread_current()->fdt[thread_current()->next_fd]);
+	thread_current()->fdt[thread_current()->next_fd] = open_file;
 	return thread_current()->next_fd++;
 
 }
