@@ -73,7 +73,6 @@ exit(int status){
 
 int 
 write (int fd, const void *buffer, unsigned length){
-
 	if(fd == 1){
 		putbuf(buffer, length);
 		return length;
@@ -81,33 +80,32 @@ write (int fd, const void *buffer, unsigned length){
 	} else {
 		return -1;
 	}
-
 }
 
 bool 
 create (const char *file, unsigned initial_size){
-	// TODO:
+	if(file == NULL || initial_size < 0) return false;	
 	return filesys_create(file, initial_size);
-
 }
 
 
 bool 
 remove(const char *file){
+	if(file == NULL) return false;
+
 	// TODO: 열려있다면 반환 필요 
 	return filesys_remove(file);
-
 }
 
 // 파일 이름에 해당하는 파일 
 int 
-open(const char *file){
-	
+open(const char *file){	
 	struct file* open_file = filesys_open(file);
 	if(open_file == NULL) return -1;
 
 	// TODO: 파일을 연 스레드에 페이지 테이블 할당 필요 
 	thread_current()->fdt[thread_current()->next_fd] = &open_file;
+	printf("%x\n",thread_current()->fdt[thread_current()->next_fd]);
 	return thread_current()->next_fd++;
 
 }
@@ -116,7 +114,7 @@ int
 filesize(int fd){
 	struct thread* curr;
 
-	if(fd < 2) return 0;
+	if(fd < 2) exit(-1);
 	curr = thread_current()->fdt[fd];
 
 	if(curr == NULL) return 0;
@@ -131,7 +129,6 @@ int read(int fd, void* buffer, unsigned length){
 	if(curr == NULL) return 0;
 
 	return file_read(curr, buffer, file_length(curr));
-
 }
 
 bool 
@@ -193,8 +190,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			break;
 
 		case SYS_READ :
-
-			//f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
+			f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 			break;
 
 		case SYS_WRITE :
