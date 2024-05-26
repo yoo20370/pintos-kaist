@@ -84,7 +84,7 @@ write (int fd, const void *buffer, unsigned length){
 
 bool 
 create (const char *file, unsigned initial_size){
-	if(file == NULL || initial_size < 0) return false;	
+	if(file == NULL || initial_size < 0) return -1;	
 	return filesys_create(file, initial_size);
 }
 
@@ -107,18 +107,20 @@ int
 open(const char *file){	
 	struct thread *curr = thread_current();
 	struct file* open_file = filesys_open(file);
-	int next_fd = 0;
+	int temp_fd = 0;
+	int fd = 0;
 	if(open_file == NULL || open_file == 0) return -1;
 
 	// 파일을 연 스레드에 페이지 테이블 할당 필요 
 	curr->fdt[curr->next_fd] = open_file;
-	next_fd = curr->next_fd;
+	fd = curr->next_fd;
 
 	// next_fd 다음 위치부터 탐색 시작
-	next_fd = find_table_empty(next_fd + 1, curr);
-	if(next_fd == -1) exit(-1);
-	curr->next_fd = next_fd;
-	return next_fd;
+	temp_fd = find_table_empty(fd + 1, curr);
+	if(temp_fd == -1) return -1; // 반환값 -1
+	curr->next_fd = temp_fd;
+	
+	return fd;
 
 }
 
@@ -138,9 +140,13 @@ int read(int fd, void* buffer, unsigned length){
 	if(fd < 0) return -1;
 	struct file* curr = thread_current()->fdt[fd];
 	if(curr == NULL || curr == 0) return -1;
-	int result;
+	
 	if(fd == 0){
-		return input_getc();
+		char * buf = (char*)buffer;
+		for(unsigned i = 0 ; i < length; i++){
+			buf[i] = input_getc();
+		}
+		return length;
 	} else {
 		return file_read(curr, buffer, file_length(curr));
 	}
@@ -153,7 +159,7 @@ close(int fd){
 	struct thread * curr = thread_current();
 	struct file * curr_file = curr->fdt[fd];
 
-	// if(curr_file == NULL || curr_file == 0) return;
+	if(curr_file == NULL || curr_file == 0) return;
 	// 파일 닫음 
 	file_close(curr_file);
 
