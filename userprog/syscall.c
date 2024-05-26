@@ -97,8 +97,10 @@ remove(const char *file){
 }
 
 int find_table_empty(int fd, struct thread* curr){
-	for(; fd < 64; fd++)
-		if(curr->fdt[fd] == NULL || curr->fdt[fd] == 0) return fd;
+	for(; fd < 64; fd++){
+		if(curr->fdt[fd] == NULL || curr->fdt[fd] == 0) 
+			return fd;
+	}
 	return -1;
 }
 
@@ -115,9 +117,12 @@ open(const char *file){
 	next_fd = curr->next_fd;
 
 	// next_fd 다음 위치부터 탐색 시작
-	curr->next_fd = find_table_empty(next_fd + 1, curr);
-	return next_fd;
+	next_fd = find_table_empty(next_fd + 1, curr);
 
+	//
+	if(next_fd == -1) exit(-1);
+	curr->next_fd = next_fd;
+	return next_fd;
 }
 
 int
