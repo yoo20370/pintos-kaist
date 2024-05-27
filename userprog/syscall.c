@@ -105,6 +105,7 @@ open(const char *file){
 	struct file* open_file = filesys_open(file);
 	int temp_fd = 0;
 	int fd = 0;
+	
 	if(open_file == NULL || open_file == 0) return -1;
 
 	// 파일을 연 스레드에 페이지 테이블 할당 필요 
@@ -124,7 +125,7 @@ int
 filesize(int fd){
 	struct file* curr_f;
 
-	if(fd < 2) exit(-1);
+	if(fd < 2 || fd > 63) exit(-1);
 	curr_f = thread_current()->fdt[fd];
 
 	if(curr_f == NULL) return 0;
@@ -133,7 +134,7 @@ filesize(int fd){
 }
 
 int read(int fd, void* buffer, unsigned length){
-	if(fd < 0) return -1;
+	if(fd < 0 || fd > 63) return -1;
 	struct file* curr_f = thread_current()->fdt[fd];
 	if(curr_f == NULL || curr_f == 0 || length < 0) return -1;
 	
@@ -158,7 +159,7 @@ write (int fd, const void *buffer, unsigned length){
 	struct thread* curr_t = thread_current();
 	struct file * curr_f;
 
-	if(fd < 0) return 0;
+	if(fd < 0 || fd > 63) return 0;
 
 	if(fd == 1){
 		putbuf(buffer, length);
@@ -187,7 +188,7 @@ void seek (int fd, unsigned position){
 unsigned tell (int fd){
 	struct file* curr_f;
 
-	if(fd < 2) return -1;
+	if(fd < 2 || fd > 63) return -1;
 	curr_f = thread_current()->fdt[fd];
 
 	if(curr_f == NULL || curr_f == 0) return -1;
@@ -287,7 +288,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_CLOSE :
 			close(f->R.rdi);
 			break;
-
+		default :
+			thread_exit();
+			break;
 	}
 
 }
