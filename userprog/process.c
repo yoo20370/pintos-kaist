@@ -228,7 +228,7 @@ process_wait (tid_t child_tid UNUSED) {
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
 	// 1500000000 - 윈도우
-	for(int i = 0; i < 500000000; i ++) {
+	for(int i = 0; i < 600000000; i ++) {
 		
 	}
 	return -1;

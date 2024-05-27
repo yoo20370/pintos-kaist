@@ -81,10 +81,9 @@ int wait (pid_t){
 
 bool 
 create (const char *file, unsigned initial_size){
-	if(file == NULL || initial_size < 0) return -1;	
+	if(file == NULL || initial_size < 0) return false;	
 	return filesys_create(file, initial_size);
 }
-
 
 bool 
 remove(const char *file){
@@ -123,13 +122,13 @@ open(const char *file){
 
 int
 filesize(int fd){
-	struct thread* curr_t;
+	struct file* curr_f;
 
 	if(fd < 2) exit(-1);
-	curr_t = thread_current()->fdt[fd];
+	curr_f = thread_current()->fdt[fd];
 
-	if(curr_t == NULL) return 0;
-	return file_length(curr_t);	
+	if(curr_f == NULL) return 0;
+	return file_length(curr_f);	
 
 }
 
@@ -175,8 +174,24 @@ write (int fd, const void *buffer, unsigned length){
 	}
 }
 
+void seek (int fd, unsigned position){
+	struct file* curr_f;
+
+	if(fd < 2) exit(-1);
+	curr_f = thread_current()->fdt[fd];
+
+	if(curr_f == NULL || curr_f == 0) exit(-1);
+	file_seek(curr_f, position);
+}
+
 unsigned tell (int fd){
-	return 0;
+	struct file* curr_f;
+
+	if(fd < 2) return -1;
+	curr_f = thread_current()->fdt[fd];
+
+	if(curr_f == NULL || curr_f == 0) return -1;
+	return file_tell(curr_f);
 }
 
 void 
@@ -262,9 +277,11 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			break;
 
 		case SYS_SEEK :
+			seek(f->R.rdi, f->R.rsi);
 			break;
 
 		case SYS_TELL :
+			f->R.rax = tell(f->R.rdi);
 			break;
 
 		case SYS_CLOSE :
