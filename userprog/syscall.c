@@ -71,26 +71,12 @@ exit(int status){
 
 }
 
-int 
-write (int fd, const void *buffer, unsigned length){
+int exec (const char *file){
+	return 0;
+}
 
-	struct thread* curr_t = thread_current();
-	struct file * curr_f;
-
-	if(fd < 0) return 0;
-
-	if(fd == 1){
-		putbuf(buffer, length);
-		return length;
-
-	} else {
-		curr_f = curr_t->fdt[fd];
-		if(curr_f == NULL || curr_f == 0 || length < 0) return 0;
-		if(length == 0) return 0;
-
-		return file_write(curr_f, buffer, length);
-
-	}
+int wait (pid_t){
+	return 0;
 }
 
 bool 
@@ -167,7 +153,31 @@ int read(int fd, void* buffer, unsigned length){
 	}
 }
 
+int 
+write (int fd, const void *buffer, unsigned length){
 
+	struct thread* curr_t = thread_current();
+	struct file * curr_f;
+
+	if(fd < 0) return 0;
+
+	if(fd == 1){
+		putbuf(buffer, length);
+		return length;
+
+	} else {
+		curr_f = curr_t->fdt[fd];
+		if(curr_f == NULL || curr_f == 0 || length < 0) return 0;
+		if(length == 0) return 0;
+
+		return file_write(curr_f, buffer, length);
+
+	}
+}
+
+unsigned tell (int fd){
+	return 0;
+}
 
 void 
 close(int fd){
