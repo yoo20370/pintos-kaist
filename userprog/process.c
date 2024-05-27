@@ -77,6 +77,7 @@ tid_t process_create_initd(const char *file_name)
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create(token, PRI_DEFAULT, initd, fn_copy);
+
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
 	return tid;
@@ -233,7 +234,7 @@ int process_wait(tid_t child_tid UNUSED)
 	 * XXX:       implementing the process_wait. */
 	// while (1)
 	// 	;
-	for (int i = 0; i < 300000000; i++)
+	for (int i = 0; i < 500000000; i++)
 	{
 	}
 	return -1;

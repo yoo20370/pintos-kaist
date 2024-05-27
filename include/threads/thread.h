@@ -12,6 +12,10 @@
 #define thread_entry(tid) \
 	((struct thread *)&tid)
 
+/* --- project 2: system call --- */
+#define FDT_PAGES 3
+#define FDT_COUNT_LIMIT FDT_PAGES * (1 << 9) // limit fdidx
+
 /* States in a thread's life cycle. */
 enum thread_status
 {
@@ -119,7 +123,9 @@ struct thread
 	struct list donors;
 	struct list_elem d_elem;
 
-	int exit_status;
+	int exit_status;	  // 종료 상태를 담음
+	int fd;				  // 파일 디스크립터
+	struct file *fdt[20]; // 파일 디스크럽터 테이블
 };
 
 /* If false (default), use round-robin scheduler.

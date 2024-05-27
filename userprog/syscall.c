@@ -7,6 +7,8 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -39,8 +41,8 @@ void syscall_init(void)
 
 void check_addr(void *addr)
 {
-	// 가상메모리와 매핑된게 없거나 유저스택보다 같거나 크거나 NULL이면 종료
-	if (pml4_get_page(thread_current()->pml4, addr) == NULL || addr >= USER_STACK || addr == NULL)
+	// 가상메모리와 매핑된게 없거나 유저스택보다 같거나 크고 NULL이면 종료
+	if (pml4_get_page(thread_current()->pml4, addr) == NULL || !is_user_vaddr(addr) || addr == NULL)
 	{
 		exit(-1);
 	}
@@ -53,12 +55,24 @@ void halt(void)
 
 void exit(int status)
 {
-	// thread_current()->status = THREAD_DYING;    //thread_exit에서 수행됨
 	struct thread *curr = thread_current();
 	curr->exit_status = status;
 	printf("%s: exit(%d)\n", curr->name, status);
 	thread_exit();
 }
+
+int read(int fd, void *buffer, unsigned size)
+{
+	check_addr(buffer);
+
+	if (fd != 0)
+	{
+		return -1;
+	}
+	else
+	{
+	}
+};
 
 int write(int fd, const void *buffer, unsigned length)
 {
@@ -72,12 +86,67 @@ int write(int fd, const void *buffer, unsigned length)
 	else
 	{
 		putbuf(buffer, length);
+		return length;
 	}
 };
 
-int exec(const char *file)
+int exec(const char *file) {
+	// thread_current
+};
+
+bool create(const char *file, unsigned initial_size)
 {
-	printf("%s\n", file);
+	check_addr(file);
+
+	if (file == NULL || initial_size < 0)
+	{
+		return false;
+	}
+
+	return filesys_create(file, initial_size);
+};
+
+bool remove(const char *file)
+{
+	check_addr(file);
+
+	return filesys_remove(file);
+};
+
+int open(const char *file)
+{
+	check_addr(file);
+
+	struct file *curr_file = filesys_open(file);
+	struct thread *curr = thread_current();
+	curr->fdt[curr->fd++];
+	if (curr_file == NULL)
+	{
+		return -1;
+	}
+	else
+	{
+		return 0;
+	}
+};
+
+void close(int fd)
+{
+	struct thread *curr = thread_current();
+	if (fd != NULL)
+	{
+		return;
+	}
+	else
+	{
+		curr->fdt[fd] = NULL;
+	}
+};
+
+int filesize(int fd) {
+	// struct thread *curr = thread_current();
+	// int size = strlen(fd);
+	// return size;
 };
 
 /* The main system call interface */
@@ -98,51 +167,47 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	switch (sys_number)
 	{
 	case 0:
-		printf("halt 함수 \n");
 		halt();
 		break;
 	case 1:
-		// printf("exit 함수 \n");
 		exit(f->R.rdi);
 		break;
 	// case 2:
 	// 	fork();
 	// 	break;
-	// case 3:
-	// 	printf("exec 함수 \n");
-	// 	exec();
-	// 	break;
+	case 3:
+		exec(f->R.rdi);
+		break;
 	// case 4:
 	// 	wait();
 	// 	break;
-	// case 5:
-	// 	create();
-	// 	break;
-	// case 6:
-	// 	remove();
-	// 	break;
-	// case 7:
-	// 	open();
-	// 	break;
-	// case 8:
-	// 	filesize();
-	// 	break;
-	// case 9:
-	// 	read();
-	// 	break;
+	case 5:
+		create(f->R.rdi, f->R.rsi);
+		break;
+	case 6:
+		remove(f->R.rdi);
+		break;
+	case 7:
+		open(f->R.rdi);
+		break;
+	case 8:
+		filesize(f->R.rdi);
+		break;
+	case 9:
+		read(f->R.rdi, f->R.rsi, f->R.rdx);
+		break;
 	case 10:
-		// 받아온 인자 순서대로 삽입
 		write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
-		// case 11:
-		// 	seek();
-		// 	break;
-		// case 12:
-		// 	tell();
-		// 	break;
-		// case 13:
-		// 	close();
-		// 	break;
+	// case 11:
+	// 	seek();
+	// 	break;
+	// case 12:
+	// 	tell();
+	// 	break;
+	case 13:
+		close(f->R.rdi);
+		break;
 		// case 14:
 		// 	dup2();
 		// 	break;
@@ -176,7 +241,8 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// case 24:
 		// 	unmount();
 		// 	break;
+	default:
+		thread_exit();
+		break;
 	}
-	// 여기서 쓰레드 종료하면 한번만 실행되고 끝남
-	// thread_exit();
 }
