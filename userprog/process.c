@@ -228,7 +228,7 @@ process_wait (tid_t child_tid UNUSED) {
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
 	// 1500000000 - 윈도우
-	for(int i = 0; i < 600000000; i ++) {
+	for(int i = 0; i < 500000000; i ++) {
 		
 	}
 	return -1;
@@ -377,7 +377,8 @@ load (const char *file_name, struct intr_frame *if_) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
-
+	file_deny_write(file);
+	
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
@@ -506,7 +507,9 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	success = true;
 	
+
 done:
+	file_allow_write(file);
 	/* We arrive here whether the load is successful or not. */
 	file_close (file);
 	return success;
