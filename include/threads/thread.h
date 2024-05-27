@@ -90,8 +90,9 @@ struct thread
 	/* Owned by thread.c. */
 	tid_t tid;				   /* Thread identifier. */
 	enum thread_status status; /* Thread state. */
-	char name[16];			   /* Name (for debugging purposes). */
-	int priority;			   /* Priority. */
+	int exit_status;
+	char name[16]; /* Name (for debugging purposes). */
+	int priority;  /* Priority. */
 	int original_priority;
 
 	/* Shared between thread.c and synch.c. */

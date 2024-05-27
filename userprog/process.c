@@ -234,23 +234,25 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	for (int i = 0; i < 999999999; i++)
+	unsigned MAGIC = 1999999999;
+	unsigned LONG_MAGIC = 3400000000;
+	for (int i = 0; i < LONG_MAGIC; i++)
 		;
+	// while (1)
+	// 	;
 
-	process_exit();
 	return 0;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
 void process_exit(void)
 {
-	struct thread *curr = thread_current();
+	struct thread *cur = thread_current();
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-	// printf ("%s: exit(%d)\n", ...);
-
+	printf("%s: exit(%d)\n", cur->name, cur->exit_status);
 	process_cleanup();
 }
 

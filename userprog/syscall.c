@@ -8,9 +8,14 @@
 #include "threads/flags.h"
 #include "intrinsic.h"
 #include "threads/init.h"
+#include "devices/input.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
+#include "stdbool.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
+static bool is_valid_access(struct intr_frame *f);
 
 /* System call.
  *
@@ -48,7 +53,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		halt();
 		break;
 	case SYS_EXIT: /* Terminate this process. */
-		exit(0);
+		exit(f->R.rdi);
 		break;
 	case SYS_FORK: /* Clone current process. */
 		break;
@@ -57,7 +62,18 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	case SYS_WAIT: /* Wait for a child process to die. */
 		break;
 	case SYS_CREATE: /* Create a file. */
-		break;
+	{
+		if (!is_valid_access(f))
+			exit(-1);
+
+		const char *file = (const char *)f->R.rdi;
+		unsigned initial_size = (unsigned)f->R.rsi;
+
+		bool success = create(file, initial_size);
+		f->R.rax = success;
+	}
+	break;
+
 	case SYS_REMOVE: /* Delete a file. */
 		break;
 	case SYS_OPEN: /* Open a file. */
@@ -80,6 +96,16 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	}
 }
 
+static bool is_valid_access(struct intr_frame *f)
+{
+	struct thread *t = thread_current();
+
+	if (!pml4_get_page(t->pml4, f->R.rdi) || !is_user_vaddr(f->R.rdi))
+		return false;
+
+	return true;
+}
+
 void halt(void)
 {
 	power_off();
@@ -88,7 +114,7 @@ void halt(void)
 void exit(int status)
 {
 	struct thread *cur = thread_current();
-	printf("%s: exit(%d)\n", cur->name, status);
+	cur->exit_status = status;
 	thread_exit();
 }
 
@@ -107,10 +133,21 @@ void exit(int status)
 // 	return syscall1(SYS_WAIT, pid);
 // }
 
-// bool create(const char *file, unsigned initial_size)
-// {
-// 	return syscall2(SYS_CREATE, file, initial_size);
-// }
+bool create(const char *file, unsigned initial_size)
+{
+	if (!file || initial_size < 0)
+		return false;
+
+	/* The validation right below is actually redundant :( */
+	struct file *existing_file = filesys_open(file);
+	if (existing_file)
+	{
+		file_close(existing_file);
+		return false;
+	}
+
+	return filesys_create(file, initial_size);
+}
 
 // bool remove(const char *file)
 // {
@@ -129,12 +166,12 @@ void exit(int status)
 
 // int read(int fd, void *buffer, unsigned size)
 // {
-// 	return syscall3(SYS_READ, fd, buffer, size);
+// 	input_getc();
 // }
 
 int write(int fd, const void *buffer, unsigned size)
 {
-	if (!fd || !buffer || size <= 0)
+	if (fd < 0 || !buffer || size <= 0)
 		return -1;
 
 	putbuf(buffer, size); // char*, size_t

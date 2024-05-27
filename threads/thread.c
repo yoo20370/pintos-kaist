@@ -29,7 +29,6 @@
 // struct list ready_list;
 static struct list all_list;
 static struct list ready_list;
-static struct list sleep_list;
 
 // 재운 스레드를 보관할 리스트
 static struct list sleep_list;
@@ -121,6 +120,7 @@ void thread_init(void)
 	initial_thread = running_thread();
 	init_thread(initial_thread, "main", PRI_DEFAULT);
 	initial_thread->status = THREAD_RUNNING;
+	initial_thread->exit_status = NULL;
 	initial_thread->tid = allocate_tid();
 }
 void wake_up(int64_t ticks)
