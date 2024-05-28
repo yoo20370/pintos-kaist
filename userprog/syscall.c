@@ -55,7 +55,7 @@ void check_addr(void *addr)
 void halt(void)
 {
 	power_off();
-};
+}
 
 void exit(int status)
 {
@@ -78,7 +78,7 @@ int read(int fd, void *buffer, unsigned size)
 	}
 
 	return file_read(curr_file, buffer, size);
-};
+}
 
 int write(int fd, const void *buffer, unsigned length)
 {
@@ -95,25 +95,24 @@ int write(int fd, const void *buffer, unsigned length)
 	}
 
 	return length;
-};
+}
 
 tid_t fork(const char *file_name, struct intr_frame *f UNUSED)
 {
 	// sema_down(thread_current()->load_sema);
-	printf("fork 실행");
-	
+
 	return process_fork(file_name, f);
 }
 
 int exec(const char *file)
 {
-	printf("file");
+	printf("file\n");
 };
 
 int wait(tid_t tid)
 {
-	printf("sys wait : %d", tid);
-	process_wait(tid);
+
+	return process_wait(tid);
 }
 
 bool create(const char *file, unsigned initial_size)
@@ -128,7 +127,7 @@ bool create(const char *file, unsigned initial_size)
 	{
 		return filesys_create(file, initial_size);
 	}
-};
+}
 
 bool remove(const char *file)
 {
@@ -186,7 +185,7 @@ void close(int fd)
 		file_close(curr->fdt[fd]);
 		curr->fdt[fd] = NULL;
 	}
-};
+}
 
 int filesize(int fd)
 {
