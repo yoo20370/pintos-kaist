@@ -116,6 +116,7 @@ struct thread
 
 	/* Owned by thread.c. */
 	struct intr_frame tf; /* Information for switching */
+	struct intr_frame parent_if; /* Information for switching */
 	unsigned magic;		  /* Detects stack overflow. */
 
 	int64_t local_tick;
@@ -124,8 +125,12 @@ struct thread
 	struct list_elem d_elem;
 
 	int exit_status;	  // 종료 상태를 담음
-	int fd;				  // 파일 디스크립터
-	struct file *fdt[20]; // 파일 디스크럽터 테이블
+	int next_fd;		  // 파일 디스크립터
+	struct file *fdt[64]; // 파일 디스크럽터 테이블
+
+	struct semaphore *load_sema;
+	struct semaphore *exit_sema;
+	struct semaphore *wait_sema;
 };
 
 /* If false (default), use round-robin scheduler.

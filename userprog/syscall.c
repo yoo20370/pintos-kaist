@@ -9,6 +9,10 @@
 #include "intrinsic.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "threads/synch.h"
+#include "userprog/process.h"
+
+static struct lock fork_lock;
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -65,13 +69,15 @@ int read(int fd, void *buffer, unsigned size)
 {
 	check_addr(buffer);
 
-	if (fd != 0)
+	struct thread *curr = thread_current();
+	struct file *curr_file = curr->fdt[fd];
+
+	if (fd < 0 || fd >= 64)
 	{
 		return -1;
 	}
-	else
-	{
-	}
+
+	return file_read(curr_file, buffer, size);
 };
 
 int write(int fd, const void *buffer, unsigned length)
@@ -79,31 +85,49 @@ int write(int fd, const void *buffer, unsigned length)
 	// 주소 유효성 검사
 	check_addr(buffer);
 
-	if (fd != 1)
+	if (fd < 1 || fd > 63)
 	{
 		return -1;
 	}
-	else
+	if (fd == 1)
 	{
 		putbuf(buffer, length);
-		return length;
 	}
+
+	return length;
 };
 
-int exec(const char *file) {
-	// thread_current
+tid_t fork(const char *file_name, struct intr_frame *f UNUSED)
+{
+	// sema_down(thread_current()->load_sema);
+	printf("fork 실행");
+	
+	return process_fork(file_name, f);
+}
+
+int exec(const char *file)
+{
+	printf("file");
 };
+
+int wait(tid_t tid)
+{
+	printf("sys wait : %d", tid);
+	process_wait(tid);
+}
 
 bool create(const char *file, unsigned initial_size)
 {
 	check_addr(file);
 
-	if (file == NULL || initial_size < 0)
+	if (initial_size < 0)
 	{
 		return false;
 	}
-
-	return filesys_create(file, initial_size);
+	else
+	{
+		return filesys_create(file, initial_size);
+	}
 };
 
 bool remove(const char *file)
@@ -117,18 +141,38 @@ int open(const char *file)
 {
 	check_addr(file);
 
-	struct file *curr_file = filesys_open(file);
+	struct file *curr_file;
 	struct thread *curr = thread_current();
-	curr->fdt[curr->fd++];
+	int target;
+	curr_file = filesys_open(file);
+
 	if (curr_file == NULL)
 	{
 		return -1;
 	}
-	else
+
+	curr->fdt[curr->next_fd] = curr_file; // fd에 파일 주소 삽입
+	target = curr->next_fd;
+	for (int i = curr->next_fd + 1; i < 64; i++)
 	{
-		return 0;
+		if (curr->fdt[i] == NULL)
+		{
+			curr->next_fd = i;
+			return target;
+		}
 	}
+
+	return -1;
 };
+
+void seek(int fd, unsigned position)
+{
+}
+
+unsigned
+tell(int fd)
+{
+}
 
 void close(int fd)
 {
@@ -139,14 +183,27 @@ void close(int fd)
 	}
 	else
 	{
+		file_close(curr->fdt[fd]);
 		curr->fdt[fd] = NULL;
 	}
 };
 
-int filesize(int fd) {
-	// struct thread *curr = thread_current();
-	// int size = strlen(fd);
-	// return size;
+int filesize(int fd)
+{
+	struct thread *curr = thread_current();
+	if (fd < 2 || fd > 63)
+	{
+		return -1;
+	}
+
+	struct file *curr_file = curr->fdt[fd];
+
+	if (curr_file == NULL)
+	{
+		return -1;
+	}
+
+	return file_length(curr_file);
 };
 
 /* The main system call interface */
@@ -172,39 +229,39 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	case 1:
 		exit(f->R.rdi);
 		break;
-	// case 2:
-	// 	fork();
-	// 	break;
-	case 3:
-		exec(f->R.rdi);
+	case 2:
+		f->R.rax = fork(f->R.rdi, f);
 		break;
-	// case 4:
-	// 	wait();
-	// 	break;
+	case 3:
+		f->R.rax = exec(f->R.rdi);
+		break;
+	case 4:
+		f->R.rax = wait(f->R.rdi);
+		break;
 	case 5:
-		create(f->R.rdi, f->R.rsi);
+		f->R.rax = create(f->R.rdi, f->R.rsi);
 		break;
 	case 6:
-		remove(f->R.rdi);
+		f->R.rax = remove(f->R.rdi);
 		break;
 	case 7:
-		open(f->R.rdi);
+		f->R.rax = open(f->R.rdi);
 		break;
 	case 8:
-		filesize(f->R.rdi);
+		f->R.rax = filesize(f->R.rdi);
 		break;
 	case 9:
-		read(f->R.rdi, f->R.rsi, f->R.rdx);
+		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case 10:
-		write(f->R.rdi, f->R.rsi, f->R.rdx);
+		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
-	// case 11:
-	// 	seek();
-	// 	break;
-	// case 12:
-	// 	tell();
-	// 	break;
+	case 11:
+		seek(f->R.rdi, f->R.rsi);
+		break;
+	case 12:
+		f->R.rax = tell(f->R.rdi);
+		break;
 	case 13:
 		close(f->R.rdi);
 		break;

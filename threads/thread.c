@@ -123,7 +123,6 @@ void thread_init(void)
 }
 void wake_up(int64_t ticks)
 {
-
 	enum intr_level old_level;
 	struct list_elem *curr_elem = list_begin(&sleep_list);
 
@@ -542,7 +541,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->priority = priority;
 	t->original_priority = priority;
 	t->magic = THREAD_MAGIC;
-	t->fd = 2;
+	t->next_fd = 2;
 	list_init(&t->donors);
 }
 

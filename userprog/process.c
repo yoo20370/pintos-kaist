@@ -101,6 +101,8 @@ initd(void *f_name)
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 {
 	/* Clone current thread to new thread.*/
+	printf("1111111111111\n");
+
 	return thread_create(name,
 						 PRI_DEFAULT, __do_fork, thread_current());
 }
@@ -152,10 +154,11 @@ __do_fork(void *aux)
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	struct intr_frame *parent_if;
 	bool succ = true;
+	printf("222222222222222\n");
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
-
+	printf("rax : %s\n", if_.R.rax);
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
 	if (current->pml4 == NULL)
@@ -234,9 +237,22 @@ int process_wait(tid_t child_tid UNUSED)
 	 * XXX:       implementing the process_wait. */
 	// while (1)
 	// 	;
-	for (int i = 0; i < 500000000; i++)
+	// printf("process wait :%d\n", child_tid);
+	struct thread *child = thread_entry(child_tid);
+
+	// while (1)
+	// {
+	// 	printf("exit_status :%d\n", child->exit_status);
+	// 	if (child->exit_status == -1)
+	// 	{
+	// 		return -1;
+	// 	}
+	// }
+	for (int i = 0; i < 2000000000; i++)
 	{
 	}
+	// printf("exit_status :%d\n", child->exit_status);
+
 	return -1;
 }
 
