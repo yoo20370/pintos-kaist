@@ -11,8 +11,7 @@
 #include "filesys/file.h"
 #include "threads/synch.h"
 #include "userprog/process.h"
-
-static struct lock fork_lock;
+#include "threads/palloc.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -97,17 +96,26 @@ int write(int fd, const void *buffer, unsigned length)
 	return length;
 }
 
-tid_t fork(const char *file_name, struct intr_frame *f UNUSED)
+tid_t fork(const char *file_name, struct intr_frame *f)
 {
-	// sema_down(thread_current()->load_sema);
-
+	// printf("--- syscall fork ---\n");
 	return process_fork(file_name, f);
 }
 
-int exec(const char *file)
+int exec(const char *cmd_line)
 {
-	printf("file\n");
-};
+	check_addr(cmd_line);
+
+	char *fn_copy;
+
+	fn_copy = palloc_get_page(PAL_ZERO);
+	if (fn_copy == NULL)
+		exit(-1);
+	strlcpy(fn_copy, cmd_line, PGSIZE);
+
+	if (process_exec(fn_copy) == -1)
+		exit(-1);
+}
 
 int wait(tid_t tid)
 {
@@ -210,7 +218,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 {
 	/* 시스템 콜 넘버 */
 	int sys_number = f->R.rax;
-
+	// printf("sys_number: %d\n", sys_number);
 	/*
 	1번째 인자: %rdi
 	2번째 인자: %rsi
@@ -298,7 +306,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// 	unmount();
 		// 	break;
 	default:
-		thread_exit();
+		// thread_exit();
 		break;
 	}
 }

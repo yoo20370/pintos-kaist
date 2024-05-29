@@ -65,6 +65,7 @@ tid_t process_create_initd(const char *file_name)
 	char *saveptr;
 	char *token;
 	tid_t tid;
+	// printf("--- process create initd ---\n");
 
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
@@ -115,6 +116,8 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	/* Clone current thread to new thread.*/
 	struct thread *parent = thread_current(); // 부모 쓰레드
 
+	// printf("!!!!!!!!!! %d !!!!!!!!\n", if_->R.rax);
+	memcpy(&parent->parent_tf, if_, sizeof(struct intr_frame));
 	tid_t tid = thread_create(name, PRI_DEFAULT, __do_fork, parent); // 자식을 생성하고 __do_fork()를 진행
 	if (tid == TID_ERROR)
 	{
@@ -122,13 +125,13 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	}
 
 	struct thread *child = get_child_process(tid);
-
-	sema_down(&child->load_sema);
-
+	// printf("chlde%s\n", child->name);
 	if (child->exit_status == TID_ERROR)
 	{
 		return TID_ERROR;
 	}
+
+	sema_down(&child->load_sema);
 
 	return tid;
 }
@@ -145,17 +148,20 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 	void *newpage;
 	bool writable;
 
+	// printf("--- duplicate pte ---\n");
 	/* 1. TODO: 부모 페이지가 커널 페이지인 경우, 즉시 반환합니다. */
 	if (is_kernel_vaddr(va))
 	{
-		return false;
+		// printf("--- is kernel vaddr ---\n");
+		return true;
 	}
 
 	/* 2. 부모의 페이지 맵 레벨 4에서 VA를 해결합니다. */
 	parent_page = pml4_get_page(parent->pml4, va);
 
-	if (parent_page == NULL)
+	if (!parent_page)
 	{
+		// printf("--- not parnet page ---\n");
 		return false;
 	}
 
@@ -165,6 +171,7 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 
 	if (newpage == NULL)
 	{
+		// printf("--- new page NULL ---\n");
 		return false;
 	}
 
@@ -176,9 +183,11 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 	/* 5. 자식의 페이지 테이블에 주소 VA로 새로운 페이지를 WRITABLE 권한으로 추가합니다. */
 	if (!pml4_set_page(current->pml4, va, newpage, writable))
 	{
-		// palloc_free_page(newpage);
+		// printf("set_page error\n");
 		return false;
 	}
+	// printf("check\n");
+
 	return true;
 }
 #endif
@@ -192,15 +201,15 @@ __do_fork(void *aux)
 {
 	struct intr_frame if_;
 	struct thread *parent = (struct thread *)aux;
-	printf("parent tid : %d\n", parent->tid);
+	// printf("parent tid : %d\n", parent->tid);
 	struct thread *current = thread_current();
+	// printf("child tid : %d\n", current->tid);
+
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if = &parent->tf; // 저장해둔 parent_if
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
-	memcpy(&if_, parent_if, sizeof(struct intr_frame));
-	if_.R.rax = 0;
+	memcpy(&if_, &parent->parent_tf, sizeof(struct intr_frame));
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
@@ -222,6 +231,7 @@ __do_fork(void *aux)
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
+
 	current->fdt[0] = parent->fdt[0];
 	current->fdt[1] = parent->fdt[1];
 	current->next_fd = parent->next_fd;
@@ -232,17 +242,20 @@ __do_fork(void *aux)
 			current->fdt[i] = file_duplicate(parent->fdt[i]);
 		}
 	}
+
 	sema_up(&current->load_sema);
 	process_init();
+	if_.R.rax = 0;
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret(&if_);
 error:
-	current->exit_status = TID_ERROR;
+	// printf("--- error ---\n");
+	// printf("--- tid error : %d ---\n", TID_ERROR);
+
 	sema_up(&current->load_sema);
 	exit(TID_ERROR);
-	// thread_exit();
 }
 
 /* Switch the current execution context to the f_name.
@@ -291,14 +304,15 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-
+	// for (int i = 0; i < 50000000; i++)
+	// 	;
 	struct thread *child = get_child_process(child_tid);
 	// printf("process wait child : %d\n", child->tid);
 	if (child == NULL)
 	{
 		return -1;
 	}
-	// sema_down(&child->wait_sema);
+	sema_down(&child->wait_sema);
 	list_remove(&child->child);
 	sema_up(&child->exit_sema);
 	return child->exit_status;
@@ -316,10 +330,10 @@ void process_exit(void)
 	process_cleanup();
 
 	// process_exit_file();
-	palloc_free_multiple(curr->fdt, FDT_PAGES);
+	// palloc_free_multiple(curr->fdt, FDT_PAGES);
+	sema_up(&curr->wait_sema); // 종료 상태를 부모에게 알림
 
-	sema_up(&curr->wait_sema);
-	sema_down(&curr->exit_sema);
+	sema_down(&curr->exit_sema); // 자식 프로세스가 종료될 때까지 대기
 }
 
 /* Free the current process's resources. */
