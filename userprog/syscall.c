@@ -81,7 +81,6 @@ int read(int fd, void *buffer, unsigned size)
 
 int write(int fd, const void *buffer, unsigned length)
 {
-	// 주소 유효성 검사
 	check_addr(buffer);
 
 	if (fd < 1 || fd > 63)
@@ -98,7 +97,6 @@ int write(int fd, const void *buffer, unsigned length)
 
 tid_t fork(const char *file_name, struct intr_frame *f)
 {
-	// printf("--- syscall fork ---\n");
 	return process_fork(file_name, f);
 }
 
@@ -113,13 +111,15 @@ int exec(const char *cmd_line)
 		exit(-1);
 	strlcpy(fn_copy, cmd_line, PGSIZE);
 
-	if (process_exec(fn_copy) == -1)
-		exit(-1);
+	if (process_exec(fn_copy) < 0)
+		return -1;
+
+	NOT_REACHED();
+	return 0;
 }
 
 int wait(tid_t tid)
 {
-
 	return process_wait(tid);
 }
 
@@ -172,13 +172,39 @@ int open(const char *file)
 	return -1;
 };
 
+struct file *process_get_file(int fd)
+{
+	if (fd < 2 || fd > 64)
+	{
+		return NULL;
+	}
+	return thread_current()->fdt[fd];
+}
+
 void seek(int fd, unsigned position)
 {
+	struct file *open_file = process_get_file(fd);
+
+	check_addr(open_file);
+
+	if (fd < 2 || fd > 64)
+		return;
+	if (open_file)
+		file_seek(open_file, position);
 }
 
 unsigned
 tell(int fd)
 {
+	struct file *open_file = process_get_file(fd);
+
+	check_addr(open_file);
+
+	if (fd < 2 || fd > 64)
+		return;
+	if (open_file)
+		return file_tell(open_file);
+	return NULL;
 }
 
 void close(int fd)

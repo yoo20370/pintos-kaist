@@ -116,7 +116,6 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	/* Clone current thread to new thread.*/
 	struct thread *parent = thread_current(); // 부모 쓰레드
 
-	// printf("!!!!!!!!!! %d !!!!!!!!\n", if_->R.rax);
 	memcpy(&parent->parent_tf, if_, sizeof(struct intr_frame));
 	tid_t tid = thread_create(name, PRI_DEFAULT, __do_fork, parent); // 자식을 생성하고 __do_fork()를 진행
 	if (tid == TID_ERROR)
@@ -204,12 +203,13 @@ __do_fork(void *aux)
 	// printf("parent tid : %d\n", parent->tid);
 	struct thread *current = thread_current();
 	// printf("child tid : %d\n", current->tid);
+	struct intr_frame *parent_tf = &parent->parent_tf; // 저장해둔 parent_if
 
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
-	memcpy(&if_, &parent->parent_tf, sizeof(struct intr_frame));
+	memcpy(&if_, parent_tf, sizeof(struct intr_frame));
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
@@ -242,7 +242,6 @@ __do_fork(void *aux)
 			current->fdt[i] = file_duplicate(parent->fdt[i]);
 		}
 	}
-
 	sema_up(&current->load_sema);
 	process_init();
 	if_.R.rax = 0;
@@ -318,6 +317,32 @@ int process_wait(tid_t child_tid UNUSED)
 	return child->exit_status;
 }
 
+void process_close_file(int fd)
+{
+	if (fd < 2 || fd > 64 || fd == NULL)
+		return NULL;
+
+	struct thread *cur = thread_current();
+	struct file *open_file = process_get_file(fd);
+	if (open_file == NULL)
+		return NULL;
+
+	cur->fdt[fd] = NULL;
+	file_close(open_file);
+}
+
+void process_exit_file(void)
+{
+	struct thread *cur = thread_current();
+	for (int i = 2; i < 64; i++)
+	{
+		if (cur->fdt[i] != NULL)
+		{
+			process_close_file(i);
+		}
+	}
+}
+
 /* Exit the process. This function is called by thread_exit (). */
 void process_exit(void)
 {
@@ -326,13 +351,12 @@ void process_exit(void)
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-
 	process_cleanup();
 
 	// process_exit_file();
-	// palloc_free_multiple(curr->fdt, FDT_PAGES);
-	sema_up(&curr->wait_sema); // 종료 상태를 부모에게 알림
+	// palloc_free_multiple(&curr->fdt, FDT_PAGES);
 
+	sema_up(&curr->wait_sema);	 // 종료 상태를 부모에게 알림
 	sema_down(&curr->exit_sema); // 자식 프로세스가 종료될 때까지 대기
 }
 
@@ -550,6 +574,7 @@ load(const char *file_name, struct intr_frame *if_)
 	uintptr_t phys_base = if_->rsp;
 
 	Stack stack;
+	stack.top = 0;
 	int lenArr[100] = {0};
 	int idx = 0;
 	int args_count = 1;
@@ -557,6 +582,7 @@ load(const char *file_name, struct intr_frame *if_)
 	char *addr_list[20];
 
 	push(&stack, file_name);
+
 	for (token = strtok_r(NULL, " ", &saveptr); token; token = strtok_r(NULL, " ", &saveptr))
 	{
 		push(&stack, token);
