@@ -150,8 +150,8 @@ page_fault (struct intr_frame *f) {
 	page_fault_cnt++;
 
 	// 미할당 페이지 접근
-	//if(fault_addr == NULL || is_kernel_vaddr(fault_addr))
-	exit(-1);
+	if(not_present || write||user)
+		exit(-1);
 	
 	/* If the fault is true fault, show info and exit. */
 	printf ("Page fault at %p: %s error %s page in %s context.\n",

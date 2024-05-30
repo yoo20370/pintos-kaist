@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -37,7 +38,7 @@ typedef int tid_t;
  * (at offset 0).  The rest of the page is reserved for the
  * thread's kernel stack, which grows downward from the top of
  * the page (at offset 4 kB).  Here's an illustration:
- *
+ * 
  *      4 kB +---------------------------------+
  *           |          kernel stack           |
  *           |                |                |
@@ -118,13 +119,27 @@ struct thread {
 	struct list donors;
 	struct list_elem d_elem;
 
+	// ALIVE, DEAD
 	// exit status
 	int exit_status;
 
 	// file 
 	struct file* fdt[64];
 	int next_fd;
-	
+
+	// 프로세스 계층 구조 
+	struct list childList;
+	struct list_elem c_elem;
+
+	// 세마포어
+	struct semaphore fork_sema;
+	struct semaphore wait_sema;
+	struct semaphore exit_sema;
+
+	struct intr_frame intr_f;
+
+	struct list_elem a_elem;
+
 };
 
 /* If false (default), use round-robin scheduler.

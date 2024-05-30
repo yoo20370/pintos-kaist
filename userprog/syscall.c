@@ -10,13 +10,17 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 
+#include "lib/string.h"
+
+typedef int pid_t;
+
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 void halt (void) NO_RETURN;
 void exit (int status) NO_RETURN;
-//pid_t fork (const char *thread_name);
+pid_t fork (const char *thread_name);
 int exec (const char *file);
-int wait (pid_t);
+int wait (pid_t pid);
 bool create (const char *file, unsigned initial_size);
 bool remove (const char *file);
 int open (const char *file);
@@ -71,12 +75,28 @@ exit(int status){
 
 }
 
-int exec (const char *file){
-	return 0;
+pid_t 
+fork (const char *thread_name){
+	return process_fork(thread_name, thread_current()-> intr_f);
 }
 
-int wait (pid_t){
-	return 0;
+int 
+exec (const char *file){
+
+	char* file_copy;
+	file_copy = palloc_get_page(0);
+	if(file_copy == NULL)
+		exit(-1);
+	strlcpy(file_copy, file, PGSIZE);
+	if(process_exec(file_copy) == -1)
+		exit(-1);
+
+}
+
+int 
+wait (pid_t pid){
+	// 자식 프로세스의 pid를 넘겨준다.
+	return process_wait(pid);
 }
 
 bool 
@@ -92,7 +112,9 @@ remove(const char *file){
 	return filesys_remove(file);
 }
 
-int find_table_empty(int fd, struct thread* curr_t){
+int 
+find_table_empty(int fd, struct thread* curr_t){
+	
 	for(; fd < 64; fd++)
 		if(curr_t->fdt[fd] == NULL || curr_t->fdt[fd] == 0) return fd;
 	return -1;
@@ -101,6 +123,7 @@ int find_table_empty(int fd, struct thread* curr_t){
 // 파일 이름에 해당하는 파일 
 int 
 open(const char *file){	
+
 	struct thread *curr_t = thread_current();
 	struct file* open_file = filesys_open(file);
 	int temp_fd = 0;
@@ -123,6 +146,7 @@ open(const char *file){
 
 int
 filesize(int fd){
+
 	struct file* curr_f;
 
 	if(fd < 2 || fd > 63) exit(-1);
@@ -133,7 +157,9 @@ filesize(int fd){
 
 }
 
-int read(int fd, void* buffer, unsigned length){
+int 
+read(int fd, void* buffer, unsigned length){
+
 	if(fd < 0 || fd > 63) return -1;
 	struct file* curr_f = thread_current()->fdt[fd];
 	if(curr_f == NULL || curr_f == 0 || length < 0) return -1;
@@ -175,7 +201,8 @@ write (int fd, const void *buffer, unsigned length){
 	}
 }
 
-void seek (int fd, unsigned position){
+void 
+seek (int fd, unsigned position){
 	struct file* curr_f;
 
 	if(fd < 2) exit(-1);
@@ -185,7 +212,9 @@ void seek (int fd, unsigned position){
 	file_seek(curr_f, position);
 }
 
-unsigned tell (int fd){
+unsigned 
+tell (int fd){
+
 	struct file* curr_f;
 
 	if(fd < 2 || fd > 63) return -1;
@@ -197,6 +226,7 @@ unsigned tell (int fd){
 
 void 
 close(int fd){
+
 	struct thread * curr_t = thread_current();
 	struct file * curr_file = curr_t->fdt[fd];
 
@@ -212,7 +242,6 @@ close(int fd){
 
 bool 
 check_addr(void * addr){
-
 	// 주소 유효성 검사 - 리터럴은 값을 체크해줄 필요가 없음 
 	// 접근하는 주소가 유저 영역 내에 있는지, 접근하는 주소가 커널 영역에 있는지, 접근하는 주소가 페이지 테이블에 매핑되어 있는지 체크해야 함 
 	struct thread* curr =  thread_current();
@@ -226,11 +255,10 @@ check_addr(void * addr){
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
-	// TODO: Your implementation goes here.
 	// 시스템 콜
 	int number = f->R.rax;
-
-	//printf("%d\n", number);
+	// printf("========= 시스템콜 번호 : %d \n",number);
+	
 	switch(number) {
 		case SYS_HALT :
 			halt();
@@ -241,12 +269,18 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			break;
 
 		case SYS_FORK :
+			check_addr(f->R.rdi);
+			memcpy(&thread_current()->intr_f,f, sizeof(struct intr_frame) );
+			f->R.rax = fork(f->R.rdi);
 			break;
 
 		case SYS_EXEC :
+			check_addr(f->R.rdi);
+			f->R.rax = exec(f->R.rdi);
 			break;
 
 		case SYS_WAIT :
+			f->R.rax = wait(f->R.rdi);
 			break;
 
 		case SYS_CREATE :
@@ -288,9 +322,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_CLOSE :
 			close(f->R.rdi);
 			break;
+
 		default :
-			thread_exit();
+			// thread_exit();
 			break;
 	}
-
 }

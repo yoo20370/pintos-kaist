@@ -32,6 +32,9 @@ static struct list ready_list;
 // 재운 스레드를 보관할 리스트
 static struct list sleep_list;
 
+// 모든 스레드가 있는 리스트
+static struct list all_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -69,7 +72,7 @@ static tid_t allocate_tid(void);
 void wake_up(int64_t ticks);
 bool compare_tick(struct list_elem *a, struct list_elem *b, void *aux);
 void preemption();
-
+struct thread* get_thread(tid_t tid);
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
 
@@ -115,13 +118,16 @@ void thread_init(void)
 	list_init(&ready_list);
 	list_init(&destruction_req);
 	list_init(&sleep_list);
+	list_init(&all_list);
 
+	
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread();
 	init_thread(initial_thread, "main", PRI_DEFAULT);
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid();
 
+	list_push_back(&all_list, &initial_thread->a_elem);
 }
 void wake_up(int64_t ticks)
 {
@@ -297,6 +303,14 @@ tid_t thread_create(const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	// 세마 초기화
+	sema_init(&t->fork_sema, 0);
+	sema_init(&t->wait_sema, 0);
+	sema_init(&t->exit_sema, 0);
+	sleep_list;
+	list_push_back(&thread_current()->childList, &t->c_elem);
+	
+	list_push_back(&all_list, &t->c_elem);
 	/* Add to run queue. */
 	thread_unblock(t);
 
@@ -397,6 +411,9 @@ void thread_exit(void)
 
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
+
+
+	list_remove(&thread_current()->a_elem);   
 	intr_disable();
 	do_schedule(THREAD_DYING);
 	NOT_REACHED();
@@ -531,11 +548,14 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->priority = priority;
 	t->original_priority = priority;
 	t->magic = THREAD_MAGIC;
+
 	list_init(&t->donors);
+	list_init(&t->childList);
 	// 종료 상태 초기화 
 	t->exit_status = 0;
-
 	t->next_fd = 2;
+
+
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -725,4 +745,15 @@ allocate_tid(void)
 	lock_release(&tid_lock);
 
 	return tid;
+}
+
+struct thread* get_thread(tid_t tid){
+	for (struct list_elem *e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
+	{
+		struct thread *t = list_entry(e, struct thread, a_elem);
+		if(t->tid == tid){
+			return t;
+		}
+	}
+	return NULL;
 }
