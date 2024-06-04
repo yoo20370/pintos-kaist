@@ -1,0 +1,8 @@
+tests/
+build/
+*.dsk
+.vscode
+threads/build
+userprog/build
+vm/build
+filesys/build
