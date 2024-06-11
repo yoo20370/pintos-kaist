@@ -38,6 +38,7 @@ file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
     file_page->file = container->file;
     file_page->offset = container->offset;
     file_page->read_bytes = container->read_bytes;
+	file_page->zero_bytes = container->zero_bytes;
     return true;
 }
 
@@ -74,6 +75,7 @@ file_backed_destroy (struct page *page) {
 	fd로 열린 파일을 offset 바이트부터 프로세스의 가상 주소 공간의 addr에 length 만큼 매핑해야 함
 	-> load_segment와 로직이 비슷 
 */
+
 void *
 do_mmap (void *addr, size_t length, int writable,
 		struct file *file, off_t offset) {
@@ -90,7 +92,7 @@ do_mmap (void *addr, size_t length, int writable,
 	void *start_addr = addr;
 	
 	// 이 매핑을 위해 사용한 총 페이지 수 
-	int total_page_cnt = length & PGSIZE ? length / PGSIZE + 1 : length / PGSIZE;
+	int total_page_cnt = length % PGSIZE ? length / PGSIZE + 1 : length / PGSIZE;
 
 	size_t read_bytes = file_length(rf) < length ? file_length(rf) : length;
 	size_t zero_bytes = PGSIZE - read_bytes % PGSIZE;
@@ -100,16 +102,16 @@ do_mmap (void *addr, size_t length, int writable,
 	ASSERT(offset % PGSIZE == 0);
 
 	while(read_bytes > 0 || zero_bytes > 0){
-		if(spt_find_page(&thread_current()->spt, addr) != NULL) return NULL;
-		size_t page_read_bytes = length < PGSIZE ? length : PGSIZE;
+		//if(spt_find_page(&thread_current()->spt, addr) != NULL) return NULL;
+		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
 		struct container * container = (struct container* )malloc(sizeof(struct container));
-		if(container == NULL) return NULL;
+		//if(container == NULL) return NULL;
 
 		container->file = rf;
 		container->offset = offset;
-		container->read_bytes = length;
+		container->read_bytes = page_read_bytes;
 		container->zero_bytes = page_zero_bytes;
 
 		if(!vm_alloc_page_with_initializer(VM_FILE, addr, writable, lazy_load_segment, container)){

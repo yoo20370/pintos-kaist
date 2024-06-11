@@ -1,0 +1,41 @@
+Kernel command line: -q -f put mmap-overlap put zeros run mmap-overlap
+0 ~ 9fc00 1
+100000 ~ 13e0000 1
+Pintos booting with: 
+	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
+	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
+Calibrating timer...  235,520,000 loops/s.
+hd0:0: detected 337 sector (168 kB) disk, model "QEMU HARDDISK", serial "QM00001"
+hd0:1: detected 20,160 sector (9 MB) disk, model "QEMU HARDDISK", serial "QM00002"
+hd1:0: detected 119 sector (59 kB) disk, model "QEMU HARDDISK", serial "QM00003"
+hd1:1: detected 8,064 sector (3 MB) disk, model "QEMU HARDDISK", serial "QM00004"
+Formatting file system...done.
+Boot complete.
+Putting 'mmap-overlap' into the file system...
+Putting 'zeros' into the file system...
+Executing 'mmap-overlap':
+(mmap-overlap) begin
+(mmap-overlap) open "zeros" once
+(mmap-overlap) mmap "zeros"
+(mmap-overlap) open "zeros" again
+(mmap-overlap) try to mmap "zeros" again
+(mmap-overlap) end
+mmap-overlap: exit(0)
+Kernel PANIC at ../../filesys/inode.c:304 in inode_allow_write(): assertion `inode->deny_write_cnt > 0' failed.
+Call stack: 0x80042187ff 0x8004220be7 0x800421fa3e 0x800421f7eb 0x8004222257 0x8004222096 0x800421adcd 0x8004221fd5 0x800421c487 0x800421c421 0x80042074a8 0x800421dc55 0x800421d91c 0x800421d7bf 0x400d83 0Interrupt 0x0d (#GP General Protection Exception) at rip=8004215839
+ cr2=000000000040301e error=               0
+rax 00008004244f6000 rbx 0000800424423000 rcx 00000080040b8000 rdx 00000000000003d4
+rsp 0000008004244cc0 rbp 0000008004244cd0 rsi 000000000000ac0f rdi 0000000000000000
+rip 0000008004215839 r8 0000008004244bd8  r9 000000800421bc78 r10 0000000000000000
+r11 0000000000000206 r12 000000800421d896 r13 00008004244f1000 r14 0000800420ac4c00
+r15 00008004244f1000 rflags 00000006
+es: 001b ds: 001b cs: 0008 ss: 0010
+Kernel PANIC recursion at ../../userprog/exception.c:103 in kill().
+Timer: 66 ticks
+Thread: 38 idle ticks, 26 kernel ticks, 2 user ticks
+hd0:0: 0 reads, 0 writes
+hd0:1: 114 reads, 276 writes
+hd1:0: 119 reads, 0 writes
+hd1:1: 0 reads, 0 writes
+Console: 2025 characters output
+Key

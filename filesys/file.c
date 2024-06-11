@@ -30,6 +30,10 @@ file_open (struct inode *inode) {
 
 /* Opens and returns a new file for the same inode as FILE.
  * Returns a null pointer if unsuccessful. */
+/*
+	한 파일에 대해 여러 페이지가 할당되어야 하는 경우
+	**** 할당되는 모든 페이지마다 reopen을 수행해야 함 
+*/
 struct file *
 file_reopen (struct file *file) {
 	return file_open (inode_reopen (file->inode));

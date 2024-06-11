@@ -1,0 +1,19 @@
+FAIL
+Kernel panic in run: PANIC at ../../filesys/inode.c:304 in inode_allow_write(): assertion `inode->deny_write_cnt > 0' failed.
+Call stack: 0x80042187ff 0x8004220be7 0x800421fa3e 0x800421f7eb 0x8004222257 0x8004222096 0x800421adcd 0x8004221fd5 0x800421c487 0x800421c421 0x80042074a8 0x800421dc55 0x800421d91c 0x800421d7bf 0x400d83
+Translation of call stack:
+0x00000080042187ff: debug_panic (lib/kernel/debug.c:32)
+0x0000008004220be7: inode_allow_write (filesys/inode.c:305)
+0x000000800421fa3e: file_allow_write (filesys/file.c:141)
+0x000000800421f7eb: file_close (filesys/file.c:60)
+0x0000008004222257: uninit_destroy (vm/uninit.c:94)
+0x0000008004222096: hash_page_destory (vm/vm.c:376)
+0x000000800421adcd: hash_clear (lib/kernel/hash.c:64)
+0x0000008004221fd5: supplemental_page_table_kill (vm/vm.c:354)
+0x000000800421c487: process_cleanup (userprog/process.c:336)
+0x000000800421c421: process_exit (userprog/process.c:320)
+0x00000080042074a8: thread_exit (threads/thread.c:383)
+0x000000800421dc55: wait (userprog/syscall.c:160)
+0x000000800421d91c: syscall_handler (userprog/syscall.c:94)
+0x000000800421d7bf: no_sti (userprog/syscall-entry.o:?)
+0x0000000000400d83: (unknown)

@@ -36,6 +36,7 @@ int exec(const char *cmd_line);
 int wait(int pid);
 int fork(const char *thread_name, struct intr_frame *f);
 struct file* get_file(int fd);
+struct file *find_file_by_fd (int fd);
 void * mmap(void *addr, size_t length, int writable, int fd, off_t offset);
 void munmap(void* addr);
 
@@ -126,7 +127,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		close(f->R.rdi);
 		break;
 	case SYS_MMAP :
-		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.rcx, f->R.r8);
+		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
 		break;
 	case SYS_MUNMAP :
 		munmap(f->R.rdi);
@@ -195,7 +196,8 @@ exec(const char *cmd_line) {
 
 bool create (const char *file, unsigned initial_size) {
 	is_valid_addr(file);
-	return filesys_create(file,initial_size);
+	bool success = filesys_create(file,initial_size);
+	return success;
 }
 
 bool remove(const char *file) {
@@ -311,6 +313,7 @@ int write (int fd, const void *buffer, unsigned size) {
 
 int fork(const char *thread_name, struct intr_frame *f) {
 	is_valid_addr(thread_name);
+	
 	return process_fork(thread_name, f);
 }
 
@@ -318,6 +321,15 @@ struct file* get_file(int fd){
 	if (fd < 2 || fd > 128)
 		return NULL; 
 	return thread_current()->fd_table[fd];
+}
+
+struct file *find_file_by_fd (int fd) {
+    if (fd < 0 || fd > 130){
+        return NULL;
+    }
+
+    struct thread *curr = thread_current();
+    return curr->fd_table[fd];
 }
 
 /*
@@ -337,7 +349,7 @@ void * mmap(void *addr, size_t length, int writable, int fd, off_t offset){
 	struct file *file;
 	
 	// addr이 NULL이거나 페이지 경계에 정렬되어 있지 않은 경우  
-	if(addr == NULL || !pg_round_down(addr)) return NULL;
+	if(addr == NULL || addr != pg_round_down(addr)) return NULL;
 
 	// addr이 커널 영역이거나, addr + length가 커널 영역인 경우, 즉 유저 영역이 아닌 경우 
 	if(is_kernel_vaddr(addr) || is_kernel_vaddr(addr+length)) return NULL;
@@ -348,9 +360,9 @@ void * mmap(void *addr, size_t length, int writable, int fd, off_t offset){
 
 	// 이미 매핑된 경우 체크 
 	if(spt_find_page(&thread_current()->spt, addr)) return NULL;
-	if(fd < 2) return NULL;
+	if(fd == 0 || fd == 1) return NULL;
 
-	file = get_file(fd);
+	file = find_file_by_fd(fd);
 	if(file == NULL) return NULL;
 	
 	// 파일 길이가 0인 경우 

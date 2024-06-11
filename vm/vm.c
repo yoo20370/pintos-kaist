@@ -224,62 +224,6 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	return false;
 }
 
-// bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
-//                          bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
-// {
-//     struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
-//     struct page *page = NULL;
-//     struct thread *current;
-//     bool success = false;
-//     void *rsp_page;
-
-//     /* Validate the fault */
-//     // 가상 주소가 유효하지 않은 경우
-//     if (addr == NULL || is_kernel_vaddr(addr))
-//         return false;
-
-//     // 유저인지 커널인지 어떻게 판별 ??
-//     // 커널 모드 -> thread_current() -> rsp
-//     // 유저 모드 -> intr_frame->rsp
-
-//     // 함수에 할당된 물리 프레임이 존재하지 않아서 발생한 예외인 경우 not_present 값이 true임
-//     // false인 경우는 물리 프레임이 할당되어 있지만 page fault가 발생한 것 -> read_only 페이지에 write한 경우
-//     if (not_present)
-//     {   
-//         current = thread_current();
-
-//         if (user != true)
-//         {
-//             rsp_page = current->rsp;
-//         }
-//         else
-//         {
-//             rsp_page = f->rsp;
-//         }
-        
-//         if ((rsp_page -8) <= USER_STACK && (rsp_page-8) >= (USER_STACK - (1 << 20)))
-//         {
-//             while (rsp_page > addr)
-//             {
-//                 vm_stack_growth(rsp_page);
-//                 rsp_page -= PGSIZE;
-//             }
-//             return true;
-//         }
-//         page = spt_find_page(spt, addr);
-        
-//         // SPT에서 페이지를 찾지 못했다면 false 반환
-//         if (page == NULL)
-//             return false;
-//         // 찾은 페이지가 쓰기 권한이 없는 경우 false
-//         if (write == 1 && page->writable == 0)
-//             return false;
-//         success = vm_do_claim_page(page);
-//         return success;
-//     }
-//     return success;
-// }
-
 /* Free the page.
  * DO NOT MODIFY THIS FUNCTION. */
 void vm_dealloc_page(struct page *page)
@@ -295,7 +239,7 @@ bool vm_claim_page(void *va UNUSED)
     // 프레임을 페이지에 할당하는 함수
     struct page *page = spt_find_page(&thread_current()->spt, va);
     if (page == NULL)
-        false;
+        return false;
 
     return vm_do_claim_page(page);
 }
@@ -347,7 +291,7 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED, st
         bool writable = parent_page->writable;
 
         // 1) type이 uninit인 경우
-        if (VM_TYPE(type) == VM_UNINIT)
+        if (type == VM_UNINIT)
         {
             vm_initializer *init = parent_page->uninit.init;
             void *aux = parent_page->uninit.aux;
@@ -366,23 +310,26 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED, st
 				return false;
 			}
 		}
-        if(VM_TYPE(type) == VM_FILE){
-            struct container * container = malloc(sizeof(struct container));
+
+        if(type == VM_FILE){
+            struct container * container = (struct container*)malloc(sizeof(struct container));
+            
             container->file = parent_page->file.file;
             container->offset = parent_page->file.offset;
             container->read_bytes = parent_page->file.read_bytes;
             container->zero_bytes = parent_page->file.zero_bytes;
 
             if(!vm_alloc_page_with_initializer(type, upage, writable, NULL, container)) return false;
-            continue;
 
+            // struct page *file_page = spt_find_page(dst, upage);
+            // file_backed_initializer(file_page, type, NULL);
+            // file_page->frame = parent_page->frame;
+            // pml4_set_page(thread_current()->pml4, file_page->va, parent_page->frame->kva, parent_page->writable);
+            continue;
         }
 
         // vm_claim_page으로 요청해서 매핑 & 페이지 타입에 맞게 초기화
-        if (!vm_claim_page(upage))
-        {
-            return false;
-        }
+        if (!vm_claim_page(upage)) return false;
 
         // 매핑된 프레임에 내용 로딩
         struct page *dst_page = spt_find_page(dst, upage);
