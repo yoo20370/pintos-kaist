@@ -2,6 +2,8 @@
 #define VM_VM_H
 #include <stdbool.h>
 #include "threads/palloc.h"
+#include "lib/kernel/hash.h"
+#include "lib/debug.h"
 
 enum vm_type {
 	/* page not initialized */
@@ -46,6 +48,11 @@ struct page {
 	struct frame *frame;   /* Back reference for frame */
 
 	/* Your implementation */
+	struct hash_elem hash_elem;
+	bool writable;
+	
+	// 매핑된 페이지 개수, 해제 시 사용 
+	int mapped_page_count;
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -85,6 +92,7 @@ struct page_operations {
  * We don't want to force you to obey any specific design for this struct.
  * All designs up to you for this. */
 struct supplemental_page_table {
+	struct hash spt_hash;
 };
 
 #include "threads/thread.h"
@@ -109,4 +117,17 @@ void vm_dealloc_page (struct page *page);
 bool vm_claim_page (void *va);
 enum vm_type page_get_type (struct page *page);
 
+unsigned page_hash (struct hash_elem *elem, void *aux UNUSED);
+bool page_less (struct hash_elem *elema, struct hash_elem *elemb, void *aux UNUSED);
+void hash_page_destory(struct hash_elem *e, void* aux);
+
+struct container {
+    struct file *file;
+    off_t offset;
+    size_t read_bytes;
+    size_t zero_bytes;
+};
+
+
 #endif  /* VM_VM_H */
+

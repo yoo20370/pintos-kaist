@@ -5,10 +5,15 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/fixed_point.h"
+#include "threads/synch.h"
+//#define VM
 #ifdef VM
 #include "vm/vm.h"
 #endif
 
+#define USERPROG
+#define FDT_PAGES 2
 
 /* States in a thread's life cycle. */
 enum thread_status {
@@ -27,7 +32,11 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
-
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+#define RECENT_CPU_DEFAULT 0
+#define NICE_DEFAULT 0
+#define LOAD_AVG_DEFAULT 0
+#define MAX_FILE_NUMBER 128
 /* A kernel thread or user process.
  *
  * Each thread structure is stored in its own 4 kB page.  The
@@ -92,9 +101,38 @@ struct thread {
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
 
+	int64_t local_ticks;
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
+	struct list donation_list;
+	struct list_elem donation_elem;
+	int original_priority;
+	struct lock *wait_on_lock;
 
+	int nice;
+	int recent_cpu;
+	struct list_elem allelem;
+
+	/* wait, fork and exec */
+	struct thread *parent;
+	struct list child_list;
+	struct list_elem child_elem;
+
+	struct file *file_holding;
+	// /* 프로세스의 프로그램 메모리 적재 유무 */
+	int is_dead;
+
+	struct semaphore fork_sema;
+	struct semaphore exit_sema;
+	struct semaphore wait_sema;
+
+	struct file **fd_table;
+    int cur_fd;
+
+	int exit_code;
+
+	struct intr_frame copied_if;
+	uintptr_t rsp;
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
@@ -142,5 +180,14 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
-
+int64_t get_global_ticks(void);
+void set_global_ticks();
+void thread_wakeup(int64_t ticks);
+void thread_sleep(int64_t howLong);
+bool ticks_less(const struct list_elem *a_, const struct list_elem *b_,
+            void *aux UNUSED);
+void preempt(void);
+bool cmp_thread_priority(const struct list_elem *a_, const struct list_elem *b_,
+            void *aux UNUSED);
+void update_donate();
 #endif /* threads/thread.h */

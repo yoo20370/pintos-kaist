@@ -49,4 +49,5 @@ anon_swap_out (struct page *page) {
 static void
 anon_destroy (struct page *page) {
 	struct anon_page *anon_page = &page->anon;
+	// TODO: 아직 anno 구조체에 대한 필드가 없기 때문에 해제해줄 것이 없음 
 }

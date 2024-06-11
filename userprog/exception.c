@@ -93,6 +93,12 @@ kill (struct intr_frame *f) {
 			   Kernel code shouldn't throw exceptions.  (Page faults
 			   may cause kernel exceptions--but they shouldn't arrive
 			   here.)  Panic the kernel to make the point.  */
+			/*
+			   커널의 코드 세그먼트는 커널 버그를 나타내며, 
+			   커널 코드가 예외를 발생시켜서는 안 됩니다.
+			   (페이지 폴트는 커널 예외를 유발할 수 있지만, 그것들은 여기 도달해서는 안 됩니다.) 
+			   커널을 패닉 상태로 만들어 이 점을 강조합니다.
+			*/
 			intr_dump_frame (f);
 			PANIC ("Kernel bug - unexpected interrupt in kernel");
 
@@ -116,6 +122,9 @@ kill (struct intr_frame *f) {
    can find more information about both of these in the
    description of "Interrupt 14--Page Fault Exception (#PF)" in
    [IA32-v3a] section 5.15 "Exception and Interrupt Reference". */
+   // 페이지 폴트로 전달된 intr_frame에 있는 rsp를 읽으면 유저 스택 포인터가 아닌 정의되지 않은 값을 얻을 수 있음 
+   // 유저 모드에서 커널 모드로 전환 시 rsp를 struct thread에 저장하는 것과 같은 다른 방법을 준비해야 함 
+   // -> 그렇다는 건 또 thread struct에 rsp를 위한 변수를 만들라는 것인가 ?? (추측)
 static void
 page_fault (struct intr_frame *f) {
 	bool not_present;  /* True: not-present page, false: writing r/o page. */
@@ -134,7 +143,6 @@ page_fault (struct intr_frame *f) {
 	   be assured of reading CR2 before it changed). */
 	intr_enable ();
 
-
 	/* Determine cause. */
 	not_present = (f->error_code & PF_P) == 0;
 	write = (f->error_code & PF_W) != 0;
@@ -143,12 +151,14 @@ page_fault (struct intr_frame *f) {
 #ifdef VM
 	/* For project 3 and later. */
 	if (vm_try_handle_fault (f, fault_addr, user, write, not_present))
-		return;
+		return;   
 #endif
 
 	/* Count page faults. */
 	page_fault_cnt++;
 
+
+	exit(-1); 
 	/* If the fault is true fault, show info and exit. */
 	printf ("Page fault at %p: %s error %s page in %s context.\n",
 			fault_addr,

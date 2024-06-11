@@ -47,6 +47,12 @@ hash_init (struct hash *h,
    functions hash_clear(), hash_destroy(), hash_insert(),
    hash_replace(), or hash_delete(), yields undefined behavior,
    whether done in DESTRUCTOR or elsewhere. */
+/*
+	DESTRUCTOR가 null이 아니면, 해시의 각 요소에 대해 호출됩니다. 
+	DESTRUCTOR는 적절한 경우 해시 요소에 사용된 메모리를 할당 해제할 수 있습니다. 
+	그러나 hash_clear()가 실행되는 동안 hash_clear(), hash_destroy(), hash_insert(), hash_replace(), 
+	또는 hash_delete() 함수 중 어떤 것을 사용하여 해시 테이블 H를 수정하는 것은 DESTRUCTOR 내에서든 다른 곳에서든 정의되지 않은 동작을 초래합니다.
+*/
 void
 hash_clear (struct hash *h, hash_action_func *destructor) {
 	size_t i;
@@ -77,6 +83,14 @@ hash_clear (struct hash *h, hash_action_func *destructor) {
    hash_insert(), hash_replace(), or hash_delete(), yields
    undefined behavior, whether done in DESTRUCTOR or
    elsewhere. */
+
+   /*
+	DESTRUCTOR가 null이 아닌 경우, 해시의 각 요소에 대해 먼저 호출됩니다. 
+	DESTRUCTOR는 적절한 경우 해시 요소에 사용된 메모리를 할당 해제할 수 있습니다. 
+	그러나 hash_clear()가 실행되는 동안 hash_clear(), hash_destroy(), hash_insert(), hash_replace(), 또는 hash_delete() 함수를 사용하여 해시 테이블 H를 수정하면, 
+	DESTRUCTOR 내에서든 다른 곳에서든 정의되지 않은 동작이 발생합니다.
+   */
+  
 void
 hash_destroy (struct hash *h, hash_action_func *destructor) {
 	if (destructor != NULL)
@@ -147,6 +161,7 @@ hash_delete (struct hash *h, struct hash_elem *e) {
    any of the functions hash_clear(), hash_destroy(),
    hash_insert(), hash_replace(), or hash_delete(), yields
    undefined behavior, whether done from ACTION or elsewhere. */
+   
 void
 hash_apply (struct hash *h, hash_action_func *action) {
 	size_t i;
@@ -181,6 +196,7 @@ hash_apply (struct hash *h, hash_action_func *action) {
    functions hash_clear(), hash_destroy(), hash_insert(),
    hash_replace(), or hash_delete(), invalidates all
    iterators. */
+
 void
 hash_first (struct hash_iterator *i, struct hash *h) {
 	ASSERT (i != NULL);
@@ -391,4 +407,3 @@ remove_elem (struct hash *h, struct hash_elem *e) {
 	h->elem_cnt--;
 	list_remove (&e->list_elem);
 }
-
